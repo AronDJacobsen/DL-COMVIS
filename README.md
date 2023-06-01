@@ -23,6 +23,11 @@ module load python3/3.10.7
 python3 -m venv venv
 ```
 
+Now, activate the environment:
+```
+source venv/bin/activate
+```
+
 Now, install the required dependencies:
 ```
 pip3 install -r requirements
@@ -37,7 +42,7 @@ module load cuda/11.8
 Now install Pytorch with CUDA 11.8 support by;
 ```
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-``` 
+```
 
 
 
