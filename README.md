@@ -3,6 +3,46 @@ DL-COMVIS
 
 Deep Learning in Computer Vision (June 2023) @ DTU
 
+## Setup
+
+Start by cloning the repository:
+```
+git clone https://github.com/albertkjoller/DL-COMVIS.git
+```
+Now move to this repository:
+```
+cd DL-COMVIS
+```
+
+### HPC
+
+Load a Python version and create a virtual environment:
+```
+module load python3/3.10.7
+
+python3 -m venv venv
+```
+
+Now, install the required dependencies:
+```
+pip3 install -r requirements
+```
+
+We need access to Pytorch with GPU support. On the HPC cluster we first activate CUDA:
+
+```
+module load cuda/11.8
+```
+
+Now install Pytorch with CUDA 11.8 support by;
+```
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+``` 
+
+
+
+
+
 Project Organization
 ------------
 
