@@ -44,7 +44,9 @@ Now install Pytorch with CUDA 11.8 support by;
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
+# Project 1, hotdog
 
+This project is a faithful recreation of [Jian Yangs hotdog app from Silicon Valley](https://www.youtube.com/watch?v=tWwCK95X6go)
 
 
 
