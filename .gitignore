@@ -89,9 +89,9 @@ target/
 # Mypy cache
 .mypy_cache/
 
-.pt
-.ckpt
-.pth
+*.pt
+*.ckpt
+*.pth
 
 logs/
 lightning_logs/
