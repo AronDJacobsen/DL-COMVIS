@@ -7,22 +7,27 @@ import torch.nn.functional as F
 #import pytorch_lightning as pl
 import lightning.pytorch as pl
 
-def get_model(part, model_name, loss_function):
+def get_model(model_name, loss_function):
     
-    # loss function
+    # get loss function
     if loss_function == 'CrossEntropy':
         loss_fun = nn.CrossEntropyLoss()
     elif loss_function == 'NLL':
         loss_fun = NLL
-    # model
-    if part == 1:
-        if model_name == 'initial':
-            network = Network(initial, loss_fun)
-    
+    # get model
+    if model_name == 'initial':
+        network = Network(initial, loss_fun)
+
+    elif model_name == 'transfer':
+        todo=1
+
     return network
 
+# loss functions
 def NLL(output, target):
     return F.nll_loss(torch.log(output), target)
+
+# models
 
 # basemodel
 class Network(pl.LightningModule):
@@ -47,8 +52,7 @@ class Network(pl.LightningModule):
         return optimizer
 
 
-
-
+# models
 initial = nn.Sequential(
     nn.Conv2d(3, 6, 5),
     nn.MaxPool2d(2, 2),
@@ -59,4 +63,5 @@ initial = nn.Sequential(
     nn.Softmax(dim=1)
     )
 
+# transfer model
 
