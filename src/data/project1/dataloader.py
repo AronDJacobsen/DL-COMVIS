@@ -36,7 +36,7 @@ def get_normalization_constants(root: str, seed: int = 0):
     print(f"\nMean: {train_mean}\nStd. dev.: {train_std}")    
     return train_mean, train_std
 
-def get_loaders(root: str = '/dtu/datasets1/02514/hotdogs_nohotdogs', batch_size: int = 64, seed: int = 0) -> dict:
+def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: int = 64, seed: int = 0) -> dict:
 
     train_mean, train_std = get_normalization_constants(root, seed)
 
@@ -66,8 +66,8 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdogs_nohotdogs', batch_size
     ])
 
     # Load images as datasets
-    trainvalset = ImageFolder('/dtu/datasets1/02514/hotdog_nothotdog/train', transform=train_transforms)
-    testset     = ImageFolder('/dtu/datasets1/02514/hotdog_nothotdog/test', transform=test_transforms)
+    trainvalset = ImageFolder(f'{root}/train', transform=train_transforms)
+    testset     = ImageFolder(f'{root}/test', transform=test_transforms)
 
 
     # Get validation set size
