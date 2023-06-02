@@ -46,29 +46,28 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
     # Define transforms for training and test/validation data
     train_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        # transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomHorizontalFlip(p=0.9),
         # transforms.RandomVerticalFlip(p=0.5),
         # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-        # transforms.RandomRotation(degrees=(30, 70)),
+        # transforms.RandomRotation(degrees=(60, 70)),
         transforms.ToTensor(),
         transforms.Normalize(
-            mean=[0.5132, 0.4369, 0.3576], # [0.5, 0.5, 0.5],
-            std=[0.0214, 0.0208, 0.0223], #[0.5, 0.5, 0.5]
+            mean=train_mean, # [0.5, 0.5, 0.5],
+            std=train_std, #[0.5, 0.5, 0.5]
         )
     ])
     test_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(
-            mean=[0.5132, 0.4369, 0.3576], # [0.5, 0.5, 0.5],
-            std=[0.0214, 0.0208, 0.0223], # [0.5, 0.5, 0.5],
+            mean=train_mean, # [0.5, 0.5, 0.5],
+            std=train_std, # [0.5, 0.5, 0.5],
         )
     ])
 
     # Load images as datasets
     trainvalset = ImageFolder(f'{root}/train', transform=train_transforms)
     testset     = ImageFolder(f'{root}/test', transform=test_transforms)
-
 
     # Get validation set size
     N_trainval  = trainvalset.__len__()                                       # total training points
