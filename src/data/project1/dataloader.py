@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 
-from ..utils import set_seed
+from src.utils import set_seed
 
 def get_normalization_constants(root: str, seed: int = 0):
     # Set seed for split control
