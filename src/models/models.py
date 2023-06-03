@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 
+import timm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchmetrics.classification import BinaryAccuracy
 #import pytorch_lightning as pl
 import lightning.pytorch as pl
+from pytorch_lightning.callbacks import ModelCheckpoint 
 
 def get_model(model_name, loss_function):
     
@@ -14,12 +17,14 @@ def get_model(model_name, loss_function):
         loss_fun = nn.CrossEntropyLoss()
     elif loss_function == 'NLL':
         loss_fun = NLL
+    elif loss_function == 'BCE':
+        loss_fun = nn.BCEWithLogitsLoss()
     # get model
     if model_name == 'initial':
         network = Network(initial, loss_fun)
 
     elif model_name == 'transfer':
-        todo=1
+        network = HotDogEfficientNet(loss_fun)
 
     return network
 
@@ -48,9 +53,7 @@ class Network(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
-
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 # models
 initial = nn.Sequential(
@@ -64,4 +67,52 @@ initial = nn.Sequential(
     )
 
 # transfer model
+class HotDogEfficientNet(pl.LightningModule):
+    def __init__(self, loss_fun):
+        super().__init__()
+
+        self.device1 = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.criterion = loss_fun #nn.BCEWithLogitsLoss() # nn.BCELoss()
+        self.accuracy = BinaryAccuracy().to(self.device1)
+        self.efficient_net = timm.create_model('efficientnet_b4', pretrained=True, num_classes=2)
+        self.model_checkpoint = ModelCheckpoint(monitor = "val_loss",
+                                                verbose=True,
+                                                filename="{epoch}_{val_loss:.4f}")
+
+    def forward(self,x):
+        return self.efficient_net(x) # out # torch.argmax(nn.functional.softmax(out, dim=1), dim = 1)
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(),lr = 1e-4)
+
+    def training_step(self,batch,batch_idx):
+        x,y = batch
+        y = torch.nn.functional.one_hot(y, num_classes=2) 
+
+        y = y.to(torch.float32)
+
+        y_hat = self(x)
+        loss = self.criterion(y_hat,y)
+
+        # logs metrics for each training_step - [default:True],
+        # the average across the epoch, to the progress bar and logger-[default:False]
+        acc = self.accuracy(y_hat,y)
+        self.log("train_acc",acc,on_step=False,on_epoch=True,prog_bar=True,logger=True),
+        self.log("train_loss",loss,on_step=False,on_epoch=True,prog_bar=True,logger=True)
+        return loss
+
+    def validation_step(self,batch,batch_idx):
+        x,y = batch
+        x,y = x.to(self.device1), y.to(self.device1)
+        y = torch.nn.functional.one_hot(y, num_classes=2) 
+        
+        y = y.to(torch.float32)#.reshape(-1,1)
+
+        y_hat = self(x)
+        loss = self.criterion(y_hat,y)
+        acc = self.accuracy(y_hat,y)
+        # logs metrics for each validation_step - [default:False]
+        #the average across the epoch - [default:True]
+        self.log("val_acc",acc,prog_bar=True,logger=True),
+        self.log("val_loss",loss,prog_bar=True,logger=True)
 

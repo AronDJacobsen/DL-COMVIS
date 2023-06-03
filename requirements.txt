@@ -15,3 +15,5 @@ seaborn
 plotly
 jupyter
 lightning
+torchmetrics
+timm
