@@ -5,13 +5,27 @@ import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
 
 from src.utils import set_seed
 
+class HotdogDataset(Dataset):
+    def __init__(self, subset, transform=None):
+        self.subset = subset
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        x, y = self.subset[index]
+        if self.transform:
+            x = self.transform(x)
+        return x, y
+        
+    def __len__(self):
+        return len(self.subset)
+    
 def get_normalization_constants(root: str, seed: int = 0):
     # Set seed for split control
     set_seed(seed)
@@ -46,8 +60,8 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
     # Define transforms for training and test/validation data
     train_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.9),
-        # transforms.RandomVerticalFlip(p=0.5),
+        transforms.RandomHorizontalFlip(p=0.5),         # flips "left-right"
+        transforms.RandomVerticalFlip(p=1.0),           # flips "upside-down"
         # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
         # transforms.RandomRotation(degrees=(60, 70)),
         transforms.ToTensor(),
@@ -66,7 +80,7 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
     ])
 
     # Load images as datasets
-    trainvalset = ImageFolder(f'{root}/train', transform=train_transforms)
+    trainvalset = ImageFolder(f'{root}/train') #, transform=train_transforms)
     testset     = ImageFolder(f'{root}/test', transform=test_transforms)
 
     # Get validation set size
@@ -74,11 +88,14 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
     N_val       = int(0.2 * N_trainval)                                       # take ~20% for validation
 
     # Split trainval dataset into train- and valset
-    valset      = torch.utils.data.Subset(trainvalset, range(N_val))         
-    trainset    = torch.utils.data.Subset(trainvalset, range(N_val, N_trainval))     
+    val_subset      = torch.utils.data.Subset(trainvalset, range(N_val))         
+    train_subset    = torch.utils.data.Subset(trainvalset, range(N_val, N_trainval))     
 
-    # Change transforms of validation set
-    valset.dataset.transform = test_transforms
+    valset = HotdogDataset(val_subset, transform=test_transforms)
+    trainset = HotdogDataset(train_subset, transform=train_transforms)
+
+    # # Change transforms of validation set
+    # valset.dataset.transform = test_transforms
 
     # Get dataloaders
     trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=1)
@@ -87,4 +104,3 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
 
     # Return loaders in dictionary
     return {'train': trainloader, 'validation': valloader, 'test': testloader}
-    
