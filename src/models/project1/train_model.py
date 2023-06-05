@@ -7,9 +7,9 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 
 
-from ...utils import set_seed
-from .models import get_model
-from ...data.project1.dataloader import get_loaders, get_normalization_constants
+from src.utils import set_seed
+from src.models.project1.models import get_model
+from src.data.project1.dataloader import get_loaders, get_normalization_constants
 
 def parse_arguments():
 
