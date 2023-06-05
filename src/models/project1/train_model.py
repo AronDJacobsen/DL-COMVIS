@@ -116,7 +116,7 @@ def train(args):
     ) 
 
     # manually you can save best checkpoints - 
-    trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}.pt")
+    trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.network_name}.pt")
 
 
 if __name__ == '__main__':
