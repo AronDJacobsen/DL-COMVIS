@@ -17,3 +17,5 @@ jupyter
 lightning
 torchmetrics
 timm
+tensorboard
+omegaconf

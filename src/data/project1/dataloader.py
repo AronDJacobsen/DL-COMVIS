@@ -50,7 +50,12 @@ def get_normalization_constants(root: str, seed: int = 0):
     print(f"\nMean: {train_mean}\nStd. dev.: {train_std}")    
     return train_mean, train_std
 
-def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: int = 64, seed: int = 0, train_transforms=None, test_transforms=None) -> dict:
+def get_loaders(
+        root: str = '/dtu/datasets1/02514/hotdog_nohotdog', 
+        batch_size: int = 64, seed: int = 0, 
+        train_transforms=None, test_transforms=None, 
+        num_workers=1,
+    ) -> dict:
 
     # Set seed for split control
     set_seed(seed)
@@ -71,9 +76,9 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
     trainset = HotdogDataset(train_subset, transform=train_transforms)
 
     # Get dataloaders
-    trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=1)
-    valloader   = DataLoader(valset,    batch_size=batch_size, shuffle=True, num_workers=1)
-    testloader  = DataLoader(testset,   batch_size=batch_size, shuffle=False, num_workers=1)
+    trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    valloader   = DataLoader(valset,    batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    testloader  = DataLoader(testset,   batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     # Return loaders in dictionary
     return {'train': trainloader, 'validation': valloader, 'test': testloader}
