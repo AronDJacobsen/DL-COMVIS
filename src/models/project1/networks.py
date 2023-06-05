@@ -5,11 +5,19 @@ def get_network(network_name: str):
 
     if network_name == 'test':
         return nn.Sequential(OrderedDict([
-            ('conv1', nn.Conv2d(3, 64, kernel_size=(7,7), stride=(1,1), padding=(1,1))),    # B x 64 x 222 x 222
-            ('maxpool1', nn.MaxPool2d(kernel_size=(2,2), stride=(2,2))),                    # B x 64 x 111 x 111
-
-            ('linear1', nn.Linear(64*111*111, 128)),                                        # B x 128
-            ('classifier', nn.Linear(128, 2)),
+            ('conv1', nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)),
+            ('relu1', nn.ReLU()),
+            ('pool1', nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('conv2', nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)),
+            ('relu2', nn.ReLU()),
+            ('pool2', nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('conv3', nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)),
+            ('relu3', nn.ReLSU()),
+            ('pool3', nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('flatten', nn.Flatten()),
+            ('fc1', nn.Linear(64 * 28 * 28, 256)),
+            ('relu4', nn.ReLU()),
+            ('fc2', nn.Linear(256, 2))
         ]))
     else:
         raise NotImplementedError("Not defined yet...")
