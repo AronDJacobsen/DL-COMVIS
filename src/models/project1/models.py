@@ -23,7 +23,9 @@ def get_optimizer(args, network):
 class CNNModel(pl.LightningModule):
     def __init__(self, args):
         super(CNNModel, self).__init__()
-
+        
+        self.args = args
+        
         # Load network
         self.network = get_network(args.network_name)
 
@@ -83,8 +85,10 @@ class CNNModel(pl.LightningModule):
 ### Transfer learning model ###
 class HotdogEfficientNet(pl.LightningModule):
     def __init__(self, args):
-        super().__init__()
+        super(HotdogEfficientNet, self).__init__()
 
+        self.args = args
+        
         # Load model
         self.network = timm.create_model(args.network_name, pretrained=True, num_classes=2)
         # Freeze weights

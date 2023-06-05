@@ -52,8 +52,7 @@ def train(args):
     set_seed(args.seed)
 
     # Load model
-    model = get_model(network_name=args.network)(args)
-    model = model(args=args)
+    model = get_model(network_name=args.network_name)(args)
     
     # Get normalization constants
     train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
