@@ -50,34 +50,10 @@ def get_normalization_constants(root: str, seed: int = 0):
     print(f"\nMean: {train_mean}\nStd. dev.: {train_std}")    
     return train_mean, train_std
 
-def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: int = 64, seed: int = 0) -> dict:
-
-    train_mean, train_std = get_normalization_constants(root, seed)
+def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: int = 64, seed: int = 0, train_transforms=None, test_transforms=None) -> dict:
 
     # Set seed for split control
     set_seed(seed)
-
-    # Define transforms for training and test/validation data
-    train_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5),         # flips "left-right"
-        transforms.RandomVerticalFlip(p=1.0),           # flips "upside-down"
-        # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-        # transforms.RandomRotation(degrees=(60, 70)),
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=train_mean, # [0.5, 0.5, 0.5],
-            std=train_std, #[0.5, 0.5, 0.5]
-        )
-    ])
-    test_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=train_mean, # [0.5, 0.5, 0.5],
-            std=train_std, # [0.5, 0.5, 0.5],
-        )
-    ])
 
     # Load images as datasets
     trainvalset = ImageFolder(f'{root}/train') #, transform=train_transforms)
@@ -93,9 +69,6 @@ def get_loaders(root: str = '/dtu/datasets1/02514/hotdog_nohotdog', batch_size: 
 
     valset = HotdogDataset(val_subset, transform=test_transforms)
     trainset = HotdogDataset(train_subset, transform=train_transforms)
-
-    # # Change transforms of validation set
-    # valset.dataset.transform = test_transforms
 
     # Get dataloaders
     trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=1)
