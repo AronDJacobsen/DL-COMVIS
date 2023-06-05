@@ -94,4 +94,4 @@ target/
 *.pth
 
 logs/
-lightning_logs/
+lightning_logs/ 
