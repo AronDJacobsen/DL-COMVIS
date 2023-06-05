@@ -93,7 +93,7 @@ def train(args):
 
     # Set up logger
     tb_logger = TensorBoardLogger(
-        save_dir=args.log_path,
+        save_dir=f"{args.log_path}/{args.experiment_name}",
         version=None,
         name=args.network_name,
     ),

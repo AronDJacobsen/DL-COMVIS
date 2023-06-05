@@ -12,7 +12,7 @@ def get_network(network_name: str):
             ('relu2', nn.ReLU()),
             ('pool2', nn.MaxPool2d(kernel_size=2, stride=2)),
             ('conv3', nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)),
-            ('relu3', nn.ReLSU()),
+            ('relu3', nn.ReLU()),
             ('pool3', nn.MaxPool2d(kernel_size=2, stride=2)),
             ('flatten', nn.Flatten()),
             ('fc1', nn.Linear(64 * 28 * 28, 256)),
