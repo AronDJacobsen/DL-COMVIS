@@ -33,7 +33,10 @@ def parse_arguments():
     parser.add_argument("--log_every_n", type=int, default=1,
                         help="Logging interval.")
     parser.add_argument("--devices", type=int, default=2, 
-                        help="Number of devices")
+                        help="Number of devices"),
+    # To make the input integers
+    parser.add_argument('--augmentation', nargs='*', default=[False, False, False], type=bool, 
+                        help="Space separated booleans for flip, rotation and noise")
     
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
@@ -68,10 +71,10 @@ def train(args):
     # Define transforms for training
     train_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        # transforms.RandomHorizontalFlip(p=0.5),             # flips "left-right"
+        transforms.RandomHorizontalFlip(p=0.5) if args.augmentation[0] else None, # flips "left-right"
         # transforms.RandomVerticalFlip(p=1.0),             # flips "upside-down"
-        # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-        # transforms.RandomRotation(degrees=(60, 70)),
+        transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)) if args.augmentation[2] else None, 
+        transforms.RandomRotation(degrees=(60, 70)) if args.augmentation[1] else None, 
         transforms.ToTensor(),
         transforms.Normalize(
             mean=train_mean, 
