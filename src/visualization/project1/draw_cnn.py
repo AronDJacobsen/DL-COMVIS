@@ -157,9 +157,10 @@ if __name__ == '__main__':
     ############################
     # conv layers
     # CHANGE: image sizes
-    size_list = [(32, 32), (18, 18), (10, 10), (6, 6), (4, 4)]
+    h, w = 224, 224
+    size_list = [(h, w), (h/2, w/2), (h/2**2, w/w**2), (h/2**3, w/w**3), (h/2**4, w/w**4)]
     # CHANGE: number of feature maps
-    num_list = [3, 32, 32, 48, 48]
+    num_list = [3, 16, 32, 64, 128]
     x_diff_list = [0, layer_width, layer_width, layer_width, layer_width]
     text_list = ['Inputs'] + ['Feature\nmaps'] * (len(size_list) - 1)
     loc_diff_list = [[3, -3]] * len(size_list)
@@ -188,7 +189,7 @@ if __name__ == '__main__':
     end_ratio_list = [[0.4, 0.5], [0.4, 0.8], [0.4, 0.5], [0.4, 0.8]]
 
     # CHANGE: kernel sizes
-    patch_size_list = [(5, 5), (2, 2), (5, 5), (2, 2)]
+    patch_size_list = [(3, 3), (3, 3), (3, 3), (3, 3)]
     ind_bgn_list = range(len(patch_size_list))
     # CHANGE: operations
     text_list = ['Convolution', 'Max-pooling', 'Convolution', 'Max-pooling']
@@ -207,7 +208,7 @@ if __name__ == '__main__':
     # fully connected layers
     size_list = [(fc_unit_size, fc_unit_size)] * 3
     # number of units
-    num_list = [768, 500, 2]
+    num_list = [25.088, 256, 2]
     num_show_list = list(map(min, num_list, [NumFcMax] * len(num_list)))
     x_diff_list = [sum(x_diff_list) + layer_width, layer_width, layer_width]
     top_left_list = np.c_[np.cumsum(x_diff_list), np.zeros(len(x_diff_list))]

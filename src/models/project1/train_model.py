@@ -1,4 +1,5 @@
 import argparse
+import matplotlib.pyplot as plt
 
 import torch
 import torchvision.transforms as transforms
@@ -55,8 +56,8 @@ def parse_arguments():
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
-    parser.add_argument("--norm", type=str, default = None,
-                        help="Batch normalization - one of: [batchnorm, layernorm, instancenorm]")
+    parser.add_argument("--norm", type=str, default = 'none',
+                        help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
     # TRANSFER LEARNING
     parser.add_argument("--percentage_to_freeze", type=float, default=None,
@@ -133,8 +134,14 @@ def train(args):
         val_dataloaders = loaders['validation'], 
     ) 
 
+
     # manually you can save best checkpoints - 
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.network_name}.pt")
+
+    # saving sweep
+    fig = trainer.model.lr_finder.optimal_lr.plot(suggest=True, show=False);
+    plt.savefig(f"{args.save_path}/{args.experiment_name}/lr_sweep.png")
+    plt.close(fig)
 
 
 if __name__ == '__main__':
