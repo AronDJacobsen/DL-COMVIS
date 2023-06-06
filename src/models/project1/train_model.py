@@ -36,7 +36,7 @@ def parse_arguments():
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
                         help="Batch size.")
-    parser.add_argument("--lr", type=float, default=1e-4,
+    parser.add_argument("--lr", type=float, default=1e-04,
                         help="Learning rate.")
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
@@ -44,6 +44,12 @@ def parse_arguments():
                         help="Number of epochs for training the model.")
     parser.add_argument("--num_workers", type=int, default=1,
                         help="Number of workers in the dataloader.")
+    parser.add_argument("--min_lr", type=int, default=1e-08,
+                        help="Minimum allowed learning rater.")
+    parser.add_argument("--max_lr", type=int, default=1,
+                        help="Maximum allowed learning rate.")
+    parser.add_argument("--initial_lr_steps", type=int, default=1000,
+                        help="Number of initial steps for finding learning rate.")
 
     return parser.parse_args()
 
@@ -60,10 +66,10 @@ def train(args):
     # Define transforms for training
     train_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5),             # flips "left-right"
+        # transforms.RandomHorizontalFlip(p=0.5),             # flips "left-right"
         # transforms.RandomVerticalFlip(p=1.0),             # flips "upside-down"
-        transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-        transforms.RandomRotation(degrees=(60, 70)),
+        # transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+        # transforms.RandomRotation(degrees=(60, 70)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=train_mean, 
@@ -96,7 +102,7 @@ def train(args):
         save_dir=f"{args.log_path}/{args.experiment_name}",
         version=None,
         name=args.network_name,
-    ),
+    )
 
     # Setup trainer
     trainer = pl.Trainer(
@@ -104,7 +110,7 @@ def train(args):
         accelerator="gpu", 
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
-        callbacks=[model.model_checkpoint],
+        callbacks=[model.model_checkpoint, model.lr_finder],
         logger=tb_logger,
     ) 
 
