@@ -32,6 +32,8 @@ def parse_arguments():
                         help="Sets the overall experiment name.")
     parser.add_argument("--log_every_n", type=int, default=1,
                         help="Logging interval.")
+    parser.add_argument("--devices", type=int, default=2, 
+                        help="Number of devices")
     
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
@@ -106,7 +108,7 @@ def train(args):
 
     # Setup trainer
     trainer = pl.Trainer(
-        devices=1, 
+        devices=args.devices, 
         accelerator="gpu", 
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
