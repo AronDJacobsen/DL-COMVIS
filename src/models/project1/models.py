@@ -15,6 +15,8 @@ def get_model(network_name):
 def get_optimizer(args, network):
     if args.optimizer == 'Adam':
         return torch.optim.Adam(network.parameters(), lr = args.lr)
+    if args.optimizer == 'SGD':
+        return torch.optim.SGD(network.parameters(), lr = args.lr)
     else:
         raise NotImplementedError("Implement other optimizers when getting this error...")
 
