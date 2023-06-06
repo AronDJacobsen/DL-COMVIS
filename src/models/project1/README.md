@@ -8,9 +8,8 @@ For training a model, you can run (and modify) one of the following command:
 python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name test --log_path /work3/s194253/02514/DL-COMVIS/logs/project1 --save_path /work3/s194253/02514/DL-COMVIS/models/project1 --seed 0 --experiment_name test1234 --log_every_n 2 --batch_size 32 --lr 0.001 --optimizer Adam --epochs 10 --num_workers 24
 ```
 
-```
-CUDA_VISIBLE_DEVICES=0,1 python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name test --log_path /work3/s184984/repos/DL-COMVIS/logs/project1 --save_path /work3/s184984/repos/DL-COMVIS/models/project1 --seed 0 --experiment_name Phil1 --log_every_n 2 --batch_size 32 --lr 0.001 --optimizer Adam --epochs 10 --num_workers 24
-```
+CUDA_VISIBLE_DEVICES=0,1 python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name initial --log_path /work3/s184984/repos/DL-COMVIS/logs/project1 --save_path /work3/s184984/repos/DL-COMVIS/models/project1 --seed 0 --experiment_name Adam_flip --log_every_n 2 --batch_size 32 --min_lr 0.00000001 --max_lr 0.1 --initial_lr_steps 1000 --optimizer Adam --epochs 50 --num_workers 24 --devices -1 --augmentation True False False --norm batchnorm
+
 ##### EfficientNet (B4)
 ```
 python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name efficientnet_b4 --log_path /work3/s194253/02514/DL-COMVIS/logs/project1 --save_path /work3/s194253/02514/DL-COMVIS/models/project1 --seed 0 --experiment_name test1234 --log_every_n 2 --batch_size 32 --lr 0.001 --optimizer Adam --epochs 10 --num_workers 24
