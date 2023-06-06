@@ -46,9 +46,9 @@ def parse_arguments():
                         help="Number of epochs for training the model.")
     parser.add_argument("--num_workers", type=int, default=1,
                         help="Number of workers in the dataloader.")
-    parser.add_argument("--min_lr", type=int, default=1e-08,
+    parser.add_argument("--min_lr", type=float, default=1e-08,
                         help="Minimum allowed learning rater.")
-    parser.add_argument("--max_lr", type=int, default=1,
+    parser.add_argument("--max_lr", type=float, default=1,
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
