@@ -101,12 +101,7 @@ class HotdogEfficientNet(pl.LightningModule):
         
         # Load model
         self.network = timm.create_model(args.network_name, pretrained=True, num_classes=2)
-        # Freeze weights
-        for param in self.network.parameters():
-            param.requires_grad = False
-        
-        # Require gradient for classification layer
-        self.network.classifier.requires_grad_()
+        self.freeze_parameters(args.percentage_to_freeze)
 
         # Define metrics and loss criterion
         self.criterion = nn.BCEWithLogitsLoss()
@@ -124,6 +119,31 @@ class HotdogEfficientNet(pl.LightningModule):
             max_lr=args.max_lr,
             num_training_steps=args.initial_lr_steps,
         )
+
+    def freeze_parameters(self, percentage_to_freeze):
+        # Freeze weights
+        if percentage_to_freeze is None:
+            print(f"Freezing classification layer ! ")
+            for param in self.network.parameters():
+                param.requires_grad = False
+            
+            # Require gradient for classification layer
+            self.network.classifier.requires_grad_()
+
+        else:
+            total_params = sum(p.numel() for p in self.network.parameters())  # Count total parameters
+            params_to_freeze = int(percentage_to_freeze * total_params)  # Calculate number of parameters to freeze
+
+            frozen_params = 0
+            non_frozen_params = 0
+            for param in self.network.parameters():
+                if frozen_params < params_to_freeze:
+                    param.requires_grad = False  # Freeze the parameter
+                    frozen_params += param.numel()  # Update the count of frozen parameters
+                else:
+                    non_frozen_params += param.numel()
+
+            print(f"Froze {frozen_params}/{frozen_params + non_frozen_params} = {frozen_params / (frozen_params + non_frozen_params)}%")
 
     def forward(self, x):
         return self.network(x)

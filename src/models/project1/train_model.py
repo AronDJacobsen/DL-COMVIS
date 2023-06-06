@@ -58,6 +58,11 @@ def parse_arguments():
     parser.add_argument("--norm", type=str, default = None,
                         help="Batch normalization - one of: [batchnorm, layernorm, instancenorm]")
 
+    # TRANSFER LEARNING
+    parser.add_argument("--percentage_to_freeze", type=float, default=None,
+                        help="Percentage to freeze (transfer learning) in [0, 1]")
+
+
     return parser.parse_args()
 
 def train(args):
