@@ -1,4 +1,5 @@
 import argparse
+import matplotlib.pyplot as plt
 
 import torch
 import torchvision.transforms as transforms
@@ -130,6 +131,11 @@ def train(args):
 
     # manually you can save best checkpoints - 
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.network_name}.pt")
+
+    # saving sweep
+    fig = trainer.model.lr_finder.optimal_lr.plot(suggest=True, show=False);
+    plt.savefig(f"{args.save_path}/{args.experiment_name}/lr_sweep.png")
+    plt.close(fig)
 
 
 if __name__ == '__main__':
