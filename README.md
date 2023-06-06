@@ -30,7 +30,7 @@ source venv/bin/activate
 
 Now, install the required dependencies:
 ```
-pip3 install -r requirements
+pip3 install -r requirements.txt
 ```
 
 We need access to Pytorch with GPU support. On the HPC cluster we first activate CUDA:
