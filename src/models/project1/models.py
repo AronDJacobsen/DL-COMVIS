@@ -4,7 +4,7 @@ from torch import nn
 
 # import lightning.pytorch as pl
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint 
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateFinder
 from torchmetrics.classification import BinaryAccuracy
 
 from .networks import get_network
@@ -27,6 +27,7 @@ class CNNModel(pl.LightningModule):
         super(CNNModel, self).__init__()
         
         self.args = args
+        self.lr = args.lr
         
         # Load network
         self.network = get_network(args.network_name)
@@ -40,6 +41,12 @@ class CNNModel(pl.LightningModule):
             monitor = "val_loss",
             verbose = args.verbose,
             filename = "{epoch}_{val_loss:.4f}",
+        )
+        # Setup initial learning rate finder
+        self.lr_finder = LearningRateFinder(
+            min_lr=args.min_lr,
+            max_lr=args.max_lr,
+            num_training_steps=args.initial_lr_steps,
         )
 
     def forward(self, x):
@@ -90,6 +97,7 @@ class HotdogEfficientNet(pl.LightningModule):
         super(HotdogEfficientNet, self).__init__()
 
         self.args = args
+        self.lr = args.lr
         
         # Load model
         self.network = timm.create_model(args.network_name, pretrained=True, num_classes=2)
@@ -109,6 +117,12 @@ class HotdogEfficientNet(pl.LightningModule):
             monitor = "val_loss",
             verbose = args.verbose,
             filename = "{epoch}_{val_loss:.4f}",
+        )
+        # Setup initial learning rate finder
+        self.lr_finder = LearningRateFinder(
+            min_lr=args.min_lr,
+            max_lr=args.max_lr,
+            num_training_steps=args.initial_lr_steps,
         )
 
     def forward(self, x):
