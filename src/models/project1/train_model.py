@@ -55,6 +55,8 @@ def parse_arguments():
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
+    parser.add_argument("--norm", type=str, default = None,
+                        help="Batch normalization - one of: [batchnorm, layernorm, instancenorm]")
 
     return parser.parse_args()
 

@@ -30,7 +30,7 @@ class CNNModel(pl.LightningModule):
         self.lr = args.lr
         
         # Load network
-        self.network = get_network(args.network_name)
+        self.network = get_network(self.args.network_name, self.args)
 
         # Define metrics and loss criterion
         self.criterion = nn.BCEWithLogitsLoss()
