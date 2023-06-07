@@ -89,13 +89,16 @@ def train(args):
     # Get normalization constants
     train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
     
+    def no_op_transform(image):
+        return image
+    
     # Define transforms for training
     train_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.5) if args.augmentation[0] else None, # flips "left-right"
+        transforms.RandomHorizontalFlip(p=0.5) if args.augmentation[0] else transforms.Lambda(no_op_transform), # flips "left-right"
         # transforms.RandomVerticalFlip(p=1.0),             					  # flips "upside-down"
-        transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)) if args.augmentation[2] else None, 
-        transforms.RandomRotation(degrees=(60, 70)) if args.augmentation[1] else None, 
+        transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)) if args.augmentation[2] else transforms.Lambda(no_op_transform),
+        transforms.RandomRotation(degrees=(60, 70)) if args.augmentation[1] else transforms.Lambda(no_op_transform),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=train_mean, 
