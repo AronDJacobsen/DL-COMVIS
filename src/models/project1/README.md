@@ -29,5 +29,5 @@ CUDA_VISIBLE_DEVICES=0,1 python src/models/project1/train_model.py --data_path /
 
 
 ```
-CUDA_VISIBLE_DEVICES=1 python src/models/project1/predict_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name test --model_path logs/test1234/test/version_1/checkpoints/epoch=9_val_loss=0.7083.ckpt
+CUDA_VISIBLE_DEVICES=1 python src/models/project1/predict_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name test --model_path models/project1/initial/epoch=9_val_loss=0.7083.ckpt
 ```

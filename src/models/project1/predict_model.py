@@ -16,7 +16,7 @@ def parse_arguments():
                             help="Path to data set.")
     parser.add_argument("--network_name", type=str,
                             help="Network name - either 'efficientnet_b4' or one of the self-implemented ones.")
-    parser.add_argument("--model_path", type=str, default='DL-COMVIS/logs/test1234/test/version_1/checkpoints/epoch=9_val_loss=0.7083.ckpt', help='Path to saved model file')
+    parser.add_argument("--model_path", type=str, default='DL-COMVIS/models/initial/epoch=9_val_loss=0.7083.ckpt', help='Path to saved model file')
     parser.add_argument("--verbose", type=bool, default=False,
                         help="Determines console logging.")
     parser.add_argument("--seed", type=int, default=0,
@@ -38,6 +38,8 @@ def parse_arguments():
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
+    parser.add_argument("--norm", type=str, default = None,
+                        help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
     return parser.parse_args()
 
@@ -49,19 +51,6 @@ model = get_model(network_name=args.network_name)(args)
 train_mean = torch.tensor([0.5132, 0.4369, 0.3576])
 train_std = torch.tensor([0.0214, 0.0208, 0.0223])
 
-# Define transforms for training
-train_transforms = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(p=0.5),             # flips "left-right"
-    # transforms.RandomVerticalFlip(p=1.0),             # flips "upside-down"
-    transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-    transforms.RandomRotation(degrees=(60, 70)),
-    transforms.ToTensor(),
-    transforms.Normalize(
-        mean=train_mean, 
-        std=train_std, 
-    )
-])
 
 # Define transforms for test and validation
 test_transforms = transforms.Compose([
@@ -77,7 +66,7 @@ loaders = get_loaders(
     root=args.data_path, 
     batch_size=args.batch_size, 
     seed=args.seed, 
-    train_transforms=train_transforms, 
+    train_transforms=None, 
     test_transforms=test_transforms, 
     num_workers=args.num_workers,
 )
@@ -86,6 +75,7 @@ class2idx = loaders['train'].dataset.subset.dataset.class_to_idx
 idx2class = {v: k for k, v in class2idx.items()}
 
 model = model.load_from_checkpoint(args.model_path, args=args)
+print(f'using model {model.__class__.__name__}')
 model.eval()
 
 train_correct = 0
@@ -127,10 +117,12 @@ incorrect_idx = y_pred != y_true
 correct_classified_true_labels = class_names[correct_idx]
 incorrect_classified_true_labels = class_names[incorrect_idx]
 
+bar_colors = ['tab:red','tab:red', 'tab:blue', 'tab:red','tab:blue','tab:red','tab:blue']
+
 fig, ax = plt.subplots(1,2, sharex=True)
-ax[0].barh(*np.unique(correct_classified_true_labels, return_counts=True))
+ax[0].barh(*np.unique(correct_classified_true_labels, return_counts=True), color=bar_colors)
 ax[0].set_title('Correctly classified')
-ax[1].barh(*np.unique(incorrect_classified_true_labels, return_counts=True))
+ax[1].barh(*np.unique(incorrect_classified_true_labels, return_counts=True),color=bar_colors)
 ax[1].set_title('Incorrectly classified')
 fig.tight_layout()
 plt.savefig('src/models/project1/confusion_matrix_multiclass.png', dpi=300)
