@@ -14,6 +14,7 @@ def get_network(network_name: str, args):
             return (f'in{layer_num}', nn.InstanceNorm2d(num_features)),
         elif norm_type == 'none':
             pass
+            return (f'none{layer_num}', nn.Identity())
         else:
             raise NotImplemented('Normalization-technique not yet implemented')
 
