@@ -86,7 +86,7 @@ loaders = get_loaders(
     num_workers=args.num_workers,
 )
 
-class2idx = loaders['test'].dataset.class_to_idx
+class2idx = loaders['test'].dataset.subset.dataset.class_to_idx
 idx2class = {v: k for k, v in class2idx.items()}
 
 model = model.load_from_checkpoint(args.model_path, args=args)
@@ -95,7 +95,7 @@ model.eval()
 train_correct = 0
 y_true = []
 y_pred = []
-img_paths = loaders['test'].dataset.imgs
+img_paths = loaders['test'].dataset.subset.dataset.imgs
 class_names = np.array([i.split('/')[-1].split(' ')[0] for i, _ in img_paths])
 
 acc = []
@@ -103,40 +103,28 @@ accuracy_func = BinaryAccuracy().to(model.device)
 
 for x, y in loaders['test']:
 	
-    #x, y = x.to(model.device), y.to(model.device)
-    
-    #y_hat = model(x)
-    #y_hat = torch.argmax(y_hat, dim=1)
-    #y_true.extend(y.cpu().tolist())
-    #y_pred.extend(y_hat.cpu().tolist())
-    # accuracy
-    #train_correct += (y==y_hat).sum().cpu().item()
     x, y = x.to(model.device), y.to(model.device)
     
     y_hat = model(x)
     y_hat_argmax = torch.argmax(y_hat, dim=1)
     y_true.extend(y.cpu().tolist())
     y_pred.extend(y_hat_argmax.cpu().tolist())
-    # accuracy
-    # train_correct += (y==y_hat).sum().cpu().item()
-
-
     y = torch.nn.functional.one_hot(y, num_classes=2) 
     y = y.to(torch.float32) 
     acc.append(accuracy_func(y_hat, y).cpu())  
 
-accuracy = np.mean(acc) #train_correct / len(loaders['validation'].dataset.subset.dataset)
+accuracy = np.mean(acc) 
 print(f'Accuracy: {accuracy:.4f}')
 
 # binary confusion matrix
-conf_mat = confusion_matrix(y_true, y_pred, normalize='true')
+conf_mat = confusion_matrix(y_true, y_pred, normalize='all')
 tn, fp, fn, tp = conf_mat.ravel()
-tnr, fpr, fnr, tpr = tn/(tn+fp), fp/(tn+fp), fn/(fn+tp), tp/(fn+tp)
+tpr, fpr, fnr, tnr = tn/(tn+fp), fp/(tn+fp), fn/(fn+tp), tp/(fn+tp)
 print("TNR \t & FPR  \t & FNR  \t & TPR  \\\\")
 print(f'{tnr:.3f} \t & {fpr:.3f} \t & {fnr:.3f} \t & {tpr:.3f}')
 
 fig, ax = plt.subplots(1)
-disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat, display_labels=loaders['test'].dataset.classes)
+disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat, display_labels=loaders['test'].dataset.subset.dataset.classes)
 disp.plot(cmap='hot')
 plt.savefig('src/models/project1/confusion_matrix_binary.png',dpi=300)
 

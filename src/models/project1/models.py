@@ -101,7 +101,8 @@ class HotdogEfficientNet(pl.LightningModule):
         
         # Load model
         self.network = timm.create_model(args.network_name, pretrained=True, num_classes=2)
-        self.freeze_parameters(args.percentage_to_freeze)
+        if args.percentage_to_freeze != -1.0:
+            self.freeze_parameters(args.percentage_to_freeze)
 
         # Define metrics and loss criterion
         self.criterion = nn.BCEWithLogitsLoss()
@@ -164,7 +165,7 @@ class HotdogEfficientNet(pl.LightningModule):
 
         # logs metrics for each training_step - [default:True],
         # the average across the epoch, to the progress bar and logger-[default:False]
-        self.log("train_acc", acc, on_step=False, on_epoch=True, prog_bar=True, logger=True),
+        self.log("train_acc", acc, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True),
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
