@@ -106,6 +106,7 @@ indeces_found = False
 idxs = []
 i = 0
 
+
 for ele in [[0,0], [0,1], [1,0], [1,1]]:
     while not indeces_found: 
         x, y = x0[i].reshape(1,3,224,224), y0[i]
