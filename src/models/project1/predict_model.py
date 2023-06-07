@@ -9,6 +9,8 @@ from src.utils import invertNormalization
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
 
+from torchmetrics.classification import BinaryAccuracy
+
 def parse_arguments():
 
     parser = argparse.ArgumentParser()
@@ -38,6 +40,8 @@ def parse_arguments():
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
+    parser.add_argument("--norm", type=str, default = 'none',
+                        help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
     return parser.parse_args()
 
@@ -94,17 +98,22 @@ y_pred = []
 img_paths = loaders['test'].dataset.subset.dataset.imgs
 class_names = np.array([i.split('/')[-1].split(' ')[0] for i, _ in img_paths])
 
+acc = []
+accuracy_func = BinaryAccuracy().to(model.device)
+
 for x, y in loaders['test']:
+	
     x, y = x.to(model.device), y.to(model.device)
     
     y_hat = model(x)
-    y_hat = torch.argmax(y_hat, dim=1)
+    y_hat_argmax = torch.argmax(y_hat, dim=1)
     y_true.extend(y.cpu().tolist())
-    y_pred.extend(y_hat.cpu().tolist())
-    # accuracy
-    train_correct += (y==y_hat).sum().cpu().item()
+    y_pred.extend(y_hat_argmax.cpu().tolist())
+    y = torch.nn.functional.one_hot(y, num_classes=2) 
+    y = y.to(torch.float32) 
+    acc.append(accuracy_func(y_hat, y).cpu())  
 
-accuracy = train_correct / len(loaders['test'].dataset)
+accuracy = np.mean(acc) 
 print(f'Accuracy: {accuracy:.4f}')
 
 # binary confusion matrix
