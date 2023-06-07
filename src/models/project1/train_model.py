@@ -155,9 +155,10 @@ def train(args):
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.network_name}.pt")
 
     # saving sweep
-    fig = trainer.model.lr_finder.optimal_lr.plot(suggest=True, show=False);
-    plt.savefig(f"{args.save_path}/{args.experiment_name}/lr_sweep.png")
-    plt.close(fig)
+    if args.initial_lr_steps != -1:
+        fig = trainer.model.lr_finder.optimal_lr.plot(suggest=True, show=False);
+        plt.savefig(f"{args.save_path}/{args.experiment_name}/lr_sweep.png")
+        plt.close(fig)
 
 
 if __name__ == '__main__':
