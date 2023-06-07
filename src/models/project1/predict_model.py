@@ -8,6 +8,8 @@ from src.data.project1.dataloader import get_loaders, get_normalization_constant
 from src.utils import invertNormalization
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
+import pandas as pd
+import matplotlib.patches as mpatches
 
 from torchmetrics.classification import BinaryAccuracy
 
@@ -136,10 +138,27 @@ incorrect_idx = y_pred != y_true
 correct_classified_true_labels = class_names[correct_idx]
 incorrect_classified_true_labels = class_names[incorrect_idx]
 
+bar_colors = ['tab:blue','tab:red','tab:blue', 'tab:red','tab:blue','tab:red','tab:red']
+labels, counts = np.unique(correct_classified_true_labels, return_counts=True)
+df = pd.DataFrame({'labels': labels, 'counts': counts, 'color': bar_colors})
+df = df.sort_values(by='counts', ascending=True)
+df['counts'] = df['counts'].astype(float) / df['counts'].sum()
+
 fig, ax = plt.subplots(1,2, sharex=True)
-ax[0].barh(*np.unique(correct_classified_true_labels, return_counts=True))
+counts = counts.astype(float) / counts.sum()
+ax[0].barh(df['labels'], df['counts'], color=df['color'])
 ax[0].set_title('Correctly classified')
-ax[1].barh(*np.unique(incorrect_classified_true_labels, return_counts=True))
+
+labels, counts = np.unique(incorrect_classified_true_labels, return_counts=True)
+df = pd.DataFrame({'labels': labels, 'counts': counts, 'color': bar_colors})
+df = df.sort_values(by='counts', ascending=True)
+df['counts'] = df['counts'].astype(float) / df['counts'].sum()
+ax[1].barh(df['labels'], df['counts'], color=df['color'])
 ax[1].set_title('Incorrectly classified')
+
+blue_patch = mpatches.Patch(color='tab:blue', label='Hotdog')
+red_patch = mpatches.Patch(color='tab:red', label='Not hotdog')
+
+fig.legend(handles=[red_patch, blue_patch], loc='center right', ncol=1)
 fig.tight_layout()
 plt.savefig('src/models/project1/confusion_matrix_multiclass.png', dpi=300)
