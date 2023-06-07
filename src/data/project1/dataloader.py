@@ -77,4 +77,4 @@ def get_loaders(
     testloader  = DataLoader(testset,   batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     # Return loaders in dictionary
-    return {'train': trainloader, 'validation': valloader, 'test': testloader}
+    return {'train': trainloader, 'validation': valloader, 'test': testloader, 'test_idxs': order[N_val:]}

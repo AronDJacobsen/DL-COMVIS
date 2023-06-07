@@ -11,7 +11,7 @@ python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdo
 CUDA_VISIBLE_DEVICES=0,1 python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name initial --log_path /work3/s184984/repos/DL-COMVIS/logs/project1 --save_path /work3/s184984/repos/DL-COMVIS/models/project1 --seed 0 --experiment_name Adam_flip --log_every_n 2 --batch_size 32 --min_lr 0.00000001 --max_lr 0.1 --initial_lr_steps 1000 --optimizer Adam --epochs 50 --num_workers 24 --devices -1 --augmentation True False False --norm batchnorm
 
 
-python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name initial --log_path /work3/s194253/02514/DL-COMVIS/logs/project1 --save_path /work3/s194253/02514/DL-COMVIS/models/project1 --seed 0 --experiment_name test_today --log_every_n 2 --batch_size 32 --min_lr 0.00000001 --max_lr 0.1 --initial_lr_steps 1000 --optimizer Adam --epochs 250 --num_workers 24 --devices -1 --augmentation True True True --norm batchnorm
+python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name initial --log_path /work3/s194253/02514/DL-COMVIS/logs/project1 --save_path /work3/s194253/02514/DL-COMVIS/models/project1 --seed 0 --experiment_name FINALLY --log_every_n 2 --batch_size 128 --min_lr 0.00000001 --max_lr 0.1 --initial_lr_steps 100 --optimizer Adam --epochs 250 --num_workers 24 --devices -1 --augmentation 0 0 0 --norm none --lr 1e-04
 
 
 ##### EfficientNet (B4)

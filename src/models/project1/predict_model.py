@@ -95,7 +95,7 @@ model.eval()
 train_correct = 0
 y_true = []
 y_pred = []
-img_paths = loaders['test'].dataset.subset.dataset.imgs
+img_paths = np.array(loaders['test'].dataset.subset.dataset.imgs)[loaders['test_idxs']]
 class_names = np.array([i.split('/')[-1].split(' ')[0] for i, _ in img_paths])
 
 acc = []
