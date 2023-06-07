@@ -35,14 +35,9 @@ def get_normalization_constants(root: str, seed: int = 0):
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
     ])
-    trainvalset     = ImageFolder(f'{root}/train', transform=normalization_transform)
 
-    # Get size of validation split
-    N_trainval  = trainvalset.__len__()
-    N_val       = int(0.2 * N_trainval)
-    
     # Get trainset
-    trainset    = torch.utils.data.Subset(trainvalset, range(N_val, N_trainval))     
+    trainset     = ImageFolder(f'{root}/train', transform=normalization_transform)
 
     # Compute means and standard deviations from training set
     train_mean = torch.stack([t.mean(1).mean(1) for t, c in tqdm(trainset, desc='Computing mean of training split...')]).mean(0)
@@ -61,19 +56,20 @@ def get_loaders(
     set_seed(seed)
 
     # Load images as datasets
-    trainvalset = ImageFolder(f'{root}/train') #, transform=train_transforms)
-    testset     = ImageFolder(f'{root}/test', transform=test_transforms)
+    trainset = ImageFolder(f'{root}/train', transform=train_transforms)
+    testvalset     = ImageFolder(f'{root}/test') 
 
     # Get validation set size
-    N_trainval  = trainvalset.__len__()                                       # total training points
-    N_val       = int(0.2 * N_trainval)                                       # take ~20% for validation
+    N_testval  = testvalset.__len__()                                       # total test points
+    N_val       = int(0.2 * N_testval)                                      # take ~20% for validation
 
     # Split trainval dataset into train- and valset
-    val_subset      = torch.utils.data.Subset(trainvalset, range(N_val))         
-    train_subset    = torch.utils.data.Subset(trainvalset, range(N_val, N_trainval))     
+    order = np.random.permutation(np.arange(N_testval))
+    val_subset      = torch.utils.data.Subset(testvalset, order[:N_val])         
+    test_subset    = torch.utils.data.Subset(testvalset, order[N_val:])     
 
     valset = HotdogDataset(val_subset, transform=test_transforms)
-    trainset = HotdogDataset(train_subset, transform=train_transforms)
+    testset = HotdogDataset(test_subset, transform=test_transforms)
 
     # Get dataloaders
     trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True, num_workers=num_workers)

@@ -36,6 +36,8 @@ def parse_arguments():
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
+    parser.add_argument("--percentage_to_freeze", type=float, default=None,
+                        help="Don't use this during inference ...")
 
     return parser.parse_args()
 
@@ -81,7 +83,7 @@ loaders = get_loaders(
     num_workers=args.num_workers,
 )
 
-class2idx = loaders['train'].dataset.subset.dataset.class_to_idx
+class2idx = loaders['test'].dataset.subset.dataset.class_to_idx
 idx2class = {v: k for k, v in class2idx.items()}
 
 model = model0.load_from_checkpoint(args.model_path, args=args)
@@ -102,7 +104,7 @@ for i in range(3):
 
     # Reshape the image
     # x, y = x.cpu(), y.cpu()
-    image = x.reshape(-1, 224, 224)
+    image = x.cpu().detach().reshape(-1, 224, 224)
 
     # Visualize the image and the saliency map
     img_back_transformed = invertNormalization(train_mean, train_std)(image).cpu().detach().numpy().transpose(1, 2, 0)
