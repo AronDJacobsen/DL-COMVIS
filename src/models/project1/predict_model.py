@@ -8,9 +8,8 @@ from src.data.project1.dataloader import get_loaders, get_normalization_constant
 from src.utils import invertNormalization
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
-import pandas as pd
-import matplotlib.patches as mpatches
 
+from torchmetrics.classification import BinaryAccuracy
 
 def parse_arguments():
 
@@ -19,7 +18,7 @@ def parse_arguments():
                             help="Path to data set.")
     parser.add_argument("--network_name", type=str,
                             help="Network name - either 'efficientnet_b4' or one of the self-implemented ones.")
-    parser.add_argument("--model_path", type=str, default='DL-COMVIS/models/initial/epoch=9_val_loss=0.7083.ckpt', help='Path to saved model file')
+    parser.add_argument("--model_path", type=str, default='DL-COMVIS/logs/test1234/test/version_1/checkpoints/epoch=9_val_loss=0.7083.ckpt', help='Path to saved model file')
     parser.add_argument("--verbose", type=bool, default=False,
                         help="Determines console logging.")
     parser.add_argument("--seed", type=int, default=0,
@@ -41,7 +40,7 @@ def parse_arguments():
                         help="Maximum allowed learning rate.")
     parser.add_argument("--initial_lr_steps", type=int, default=1000,
                         help="Number of initial steps for finding learning rate.")
-    parser.add_argument("--norm", type=str, default = None,
+    parser.add_argument("--norm", type=str, default = 'none',
                         help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
     return parser.parse_args()
@@ -54,6 +53,19 @@ model = get_model(network_name=args.network_name)(args)
 train_mean = torch.tensor([0.5132, 0.4369, 0.3576])
 train_std = torch.tensor([0.0214, 0.0208, 0.0223])
 
+# Define transforms for training
+train_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(p=0.5),             # flips "left-right"
+    # transforms.RandomVerticalFlip(p=1.0),             # flips "upside-down"
+    transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+    transforms.RandomRotation(degrees=(60, 70)),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=train_mean, 
+        std=train_std, 
+    )
+])
 
 # Define transforms for test and validation
 test_transforms = transforms.Compose([
@@ -69,16 +81,15 @@ loaders = get_loaders(
     root=args.data_path, 
     batch_size=args.batch_size, 
     seed=args.seed, 
-    train_transforms=None, 
+    train_transforms=train_transforms, 
     test_transforms=test_transforms, 
     num_workers=args.num_workers,
 )
 
-class2idx = loaders['train'].dataset.subset.dataset.class_to_idx
+class2idx = loaders['test'].dataset.class_to_idx
 idx2class = {v: k for k, v in class2idx.items()}
 
 model = model.load_from_checkpoint(args.model_path, args=args)
-print(f'using model {model.__class__.__name__}')
 model.eval()
 
 train_correct = 0
@@ -87,17 +98,34 @@ y_pred = []
 img_paths = loaders['test'].dataset.imgs
 class_names = np.array([i.split('/')[-1].split(' ')[0] for i, _ in img_paths])
 
+acc = []
+accuracy_func = BinaryAccuracy().to(model.device)
+
 for x, y in loaders['test']:
+	
+    #x, y = x.to(model.device), y.to(model.device)
+    
+    #y_hat = model(x)
+    #y_hat = torch.argmax(y_hat, dim=1)
+    #y_true.extend(y.cpu().tolist())
+    #y_pred.extend(y_hat.cpu().tolist())
+    # accuracy
+    #train_correct += (y==y_hat).sum().cpu().item()
     x, y = x.to(model.device), y.to(model.device)
     
     y_hat = model(x)
-    y_hat = torch.argmax(y_hat, dim=1)
+    y_hat_argmax = torch.argmax(y_hat, dim=1)
     y_true.extend(y.cpu().tolist())
-    y_pred.extend(y_hat.cpu().tolist())
+    y_pred.extend(y_hat_argmax.cpu().tolist())
     # accuracy
-    train_correct += (y==y_hat).sum().cpu().item()
+    # train_correct += (y==y_hat).sum().cpu().item()
 
-accuracy = train_correct / len(loaders['test'].dataset)
+
+    y = torch.nn.functional.one_hot(y, num_classes=2) 
+    y = y.to(torch.float32) 
+    acc.append(accuracy_func(y_hat, y).cpu())  
+
+accuracy = np.mean(acc) #train_correct / len(loaders['validation'].dataset.subset.dataset)
 print(f'Accuracy: {accuracy:.4f}')
 
 # binary confusion matrix
@@ -120,27 +148,10 @@ incorrect_idx = y_pred != y_true
 correct_classified_true_labels = class_names[correct_idx]
 incorrect_classified_true_labels = class_names[incorrect_idx]
 
-bar_colors = ['tab:blue','tab:red','tab:blue', 'tab:red','tab:blue','tab:red','tab:red']
-labels, counts = np.unique(correct_classified_true_labels, return_counts=True)
-df = pd.DataFrame({'labels': labels, 'counts': counts, 'color': bar_colors})
-df = df.sort_values(by='counts', ascending=True)
-df['counts'] = df['counts'].astype(float) / df['counts'].sum()
-
 fig, ax = plt.subplots(1,2, sharex=True)
-counts = counts.astype(float) / counts.sum()
-ax[0].barh(df['labels'], df['counts'], color=df['color'])
+ax[0].barh(*np.unique(correct_classified_true_labels, return_counts=True))
 ax[0].set_title('Correctly classified')
-
-labels, counts = np.unique(incorrect_classified_true_labels, return_counts=True)
-df = pd.DataFrame({'labels': labels, 'counts': counts, 'color': bar_colors})
-df = df.sort_values(by='counts', ascending=True)
-df['counts'] = df['counts'].astype(float) / df['counts'].sum()
-ax[1].barh(df['labels'], df['counts'], color=df['color'])
+ax[1].barh(*np.unique(incorrect_classified_true_labels, return_counts=True))
 ax[1].set_title('Incorrectly classified')
-
-blue_patch = mpatches.Patch(color='tab:blue', label='Hotdog')
-red_patch = mpatches.Patch(color='tab:red', label='Not hotdog')
-
-fig.legend(handles=[red_patch, blue_patch], loc='center right', ncol=1)
 fig.tight_layout()
 plt.savefig('src/models/project1/confusion_matrix_multiclass.png', dpi=300)

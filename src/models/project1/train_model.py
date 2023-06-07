@@ -12,6 +12,12 @@ from src.utils import set_seed
 from src.models.project1.models import get_model
 from src.data.project1.dataloader import get_loaders, get_normalization_constants
 
+class BooleanListAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        # Convert the string values to booleans
+        bool_values = [bool(int(v)) for v in values]
+        setattr(namespace, self.dest, bool_values)    
+
 def parse_arguments():
 
     parser = argparse.ArgumentParser()
@@ -36,8 +42,10 @@ def parse_arguments():
     parser.add_argument("--devices", type=int, default=2, 
                         help="Number of devices"),
     # To make the input integers
-    parser.add_argument('--augmentation', nargs='*', default=[False, False, False], type=bool, 
-                        help="Space separated booleans for flip, rotation and noise")
+    #parser.add_argument('--augmentation', nargs='*', default=[False, False, False], type=bool, 
+    #                    help="Space separated booleans for flip, rotation and noise")
+    parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, help='List of booleans')
+                        
     
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
@@ -65,6 +73,7 @@ def parse_arguments():
 
 
     return parser.parse_args()
+    
 
 def train(args):
     # Set random seed
@@ -73,14 +82,18 @@ def train(args):
     # Load model
     model = get_model(network_name=args.network_name)(args)
     
+    
+    print("augmentation", args.augmentation[0], type(args.augmentation[0]), args.augmentation[1], type(args.augmentation[1]), args.augmentation[2], type(args.augmentation[2]))
+
+    
     # Get normalization constants
     train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
-
+    
     # Define transforms for training
     train_transforms = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(p=0.5) if args.augmentation[0] else None, # flips "left-right"
-        # transforms.RandomVerticalFlip(p=1.0),             # flips "upside-down"
+        # transforms.RandomVerticalFlip(p=1.0),             					  # flips "upside-down"
         transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)) if args.augmentation[2] else None, 
         transforms.RandomRotation(degrees=(60, 70)) if args.augmentation[1] else None, 
         transforms.ToTensor(),
@@ -123,7 +136,7 @@ def train(args):
         accelerator="gpu", 
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
-        callbacks=[model.model_checkpoint, model.lr_finder],
+        callbacks=[model.model_checkpoint],#, model.lr_finder],
         logger=tb_logger,
     ) 
 
