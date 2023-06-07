@@ -9,9 +9,9 @@ def get_network(network_name: str, args):
         elif norm_type == 'layernorm':
             # image shaped divided by 2 ** number of times we've done maxpooling
             channel_dim = 224 / 2**(layer_num - 1)
-            return (f'ln{layer_num}', nn.LayerNorm([num_features, channel_dim, channel_dim])),
+            return (f'ln{layer_num}', nn.LayerNorm([num_features, channel_dim, channel_dim]))
         elif norm_type == 'instancenorm':
-            return (f'in{layer_num}', nn.InstanceNorm2d(num_features)),
+            return (f'in{layer_num}', nn.InstanceNorm2d(num_features))
         elif norm_type == 'none':
             pass
             return (f'none{layer_num}', nn.Identity())

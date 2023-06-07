@@ -38,6 +38,8 @@ def parse_arguments():
                         help="Number of initial steps for finding learning rate.")
     parser.add_argument("--percentage_to_freeze", type=float, default=None,
                         help="Don't use this during inference ...")
+    parser.add_argument("--norm", type=str, default = 'none',
+                        help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")                        
 
     return parser.parse_args()
 
@@ -97,14 +99,32 @@ x0, y0 = x.to(model.device), y.to(model.device)
 stdev_spreads = [0.001, 0.05, 0.1, 0.2, 0.3, 0.5]
 n_samples = 25
 
-fig, ax = plt.subplots(3, len(stdev_spreads)+1, figsize=(15, 10))
-for i in range(3):
-    x, y = x0[i].reshape(1,3,224,224), y0[i]
+fig, ax = plt.subplots(4, len(stdev_spreads)+1, figsize=(15, 10))
+
+
+indeces_found = False
+idxs = []
+i = 0
+
+for ele in [[0,0], [0,1], [1,0], [1,1]]:
+    while not indeces_found: 
+        x, y = x0[i].reshape(1,3,224,224), y0[i]
+        y_hat_base = model(x)
+        if y.item() == ele[0] and y_hat_base.argmax().item() == ele[1]:
+            indeces_found = True
+            idxs.append(i)
+            print("Found matching pair")
+        i += 1
+    indeces_found = False
+    i = 0
+
+for i, idx in enumerate(idxs):
+    x, y = x0[idx].reshape(1,3,224,224), y0[idx]
     y_hat_base = model(x)
 
     # Reshape the image
     # x, y = x.cpu(), y.cpu()
-    image = x.cpu().detach().reshape(-1, 224, 224)
+    image = x.reshape(-1, 224, 224)
 
     # Visualize the image and the saliency map
     img_back_transformed = invertNormalization(train_mean, train_std)(image).cpu().detach().numpy().transpose(1, 2, 0)
@@ -145,6 +165,7 @@ for i in range(3):
         ax[i, j].imshow(saliency.cpu().permute(1,2,0).mean(2), cmap='gray')
         ax[i, j].set_title(f"noise: {stdev_spreads[j-1]*100} %")
         ax[i, j].axis('off')
+
 plt.tight_layout()
 fig.suptitle('Image and Saliency Map')
 plt.savefig("src/visualization/project1/saliency_map.png",dpi=300)
