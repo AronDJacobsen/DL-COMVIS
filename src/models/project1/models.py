@@ -28,6 +28,9 @@ class CNNModel(pl.LightningModule):
         
         self.args = args
         self.lr = args.lr
+
+        self.save_hyperparameters()
+        
         
         # Load network
         self.network = get_network(self.args.network_name, self.args)
