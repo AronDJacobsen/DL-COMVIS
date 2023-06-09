@@ -21,7 +21,7 @@ def invertNormalization(train_mean, train_std):
 
 def accuracy(y_pred, y_true):
     """accuracy of segmentation wrt. ground truth mask"""
-    return (y_pred == y_true).sum().item() / y_true.numel()
+    return (y_pred == y_true).sum().item() / y_true.numel() 
 
 def specificity(y_pred, y_true):
     """specificity of segmentation wrt. ground truth mask"""
