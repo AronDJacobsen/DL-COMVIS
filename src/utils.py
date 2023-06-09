@@ -40,6 +40,12 @@ def dice(y_pred, y_true):
     return 2 * (y_pred & y_true).sum().item() / (y_pred.sum().item() + y_true.sum().item())
 
 
+from collections import deque
+import sklearn
+import glob
+import PIL.Image as Image
+import random
+
 ## Dataset classes - DRIVE
 class DRIVE(torch.utils.data.Dataset):
     def __init__(self, mode = 'train', fold = 0, transform = transforms.ToTensor(), data_path='/dtu/datasets1/02514/DRIVE', seed=420):
