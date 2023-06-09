@@ -17,7 +17,7 @@ python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdo
 ##### EfficientNet (B4)
 
 ```
-python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name efficientnet_b4 --log_path /work3/s194253/02514/DL-COMVIS/logs/project1 --save_path /work3/s194253/02514/DL-COMVIS/models/project1 --seed 0 --experiment_name transfer_None --log_every_n 2 --batch_size 32 --min_lr 0.00000001 --max_lr 0.1 --initial_lr_steps 1000 --optimizer Adam --epochs 250 --num_workers 24 --devices -1 --augmentation True True True
+python src/models/project1/train_model.py --data_path /dtu/datasets1/02514/hotdog_nothotdog/ --network_name efficientnet_b4 --log_path /work3/s194253/02514/DL-COMVIS/logs/project1 --save_path /work3/s194253/02514/DL-COMVIS/models/project1 --seed 0 --experiment_name Transfer_None --log_every_n 2 --batch_size 32 --min_lr 0.00000001 --max_lr 0.1 --initial_lr_steps 1000 --optimizer Adam --epochs 250 --num_workers 24 --devices -1 --augmentation 1 0 0
 ```
 
 ```
