@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 
 import sys
-sys.path.append('../../')
+#sys.path.append('../../')
 
 from src.utils import set_seed, get_optimizer
 from src.models.project2.models import get_model
@@ -131,7 +131,7 @@ def train(args):
 
 
     # manually you can save best checkpoints - 
-    trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.network_name}.pt")
+    trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}.pt")
 
     # Testing the model
     trainer.test(model, dataloaders=loaders['test'])

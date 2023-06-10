@@ -14,8 +14,7 @@ def get_loss(loss_functions):
 
 # define parameters
 def bce_loss(y_real, y_pred):
-    return F.binary_cross_entropy_with_logits(y_pred, y_real,
-                                              pos_weight=torch.tensor([0.5]))
+    return F.binary_cross_entropy_with_logits(y_pred, y_real)
 
 
 
