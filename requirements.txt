@@ -19,3 +19,4 @@ torchmetrics
 timm
 tensorboard
 omegaconf
+albumentations --no-binary qudida,albumentations

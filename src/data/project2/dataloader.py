@@ -9,13 +9,15 @@ import random
 import os
 from torchvision import transforms
 import torch
-
+import albumentations as A
+import numpy as np
 
 
 # Get loaders function
 from torch.utils.data import DataLoader
 
-def get_loaders(dataset, batch_size=2, seed=1, num_workers=1):
+def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict={'rotate': False, 'flip': False, 'RandomBrightnessContrast': False}):
+
 
     if dataset == 'DRIVE':
         img_size = (256, 256)
@@ -50,16 +52,23 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1):
         }
     
     if dataset == 'PH2':
-
-        return _extracted_from_get_loaders_(batch_size, num_workers)
+        return _extracted_from_get_loaders_(batch_size, num_workers, augmentations)
+    
 
 
 # TODO Rename this here and in `get_loaders`
-def _extracted_from_get_loaders_(batch_size, num_workers):
-    # won't work if halving in the CNN structure will end up with an uneven number
+def _extracted_from_get_loaders_(batch_size, num_workers, augmentations):
+    # won't work if halving in the CNN structure will end up with an odd number, numbers must be divisible by 2^N
     img_size = (288, 384)
-    train_transform = transforms.Compose([transforms.Resize(img_size), 
-                                        transforms.ToTensor()])
+    train_transform = A.Compose([
+                        A.Resize(img_size[0], img_size[1]),
+                        A.Rotate(limit=45, p=0.5) if augmentations['rotate'] else A.NoOp,
+                        A.HorizontalFlip(p=0.5) if augmentations['flip'] else A.NoOp,
+                        A.RandomBrightnessContrast(p=0.2) if augmentations['RandomBrightnessContrast'] else A.NoOp,
+                        A.pytorch.transforms.ToTensorV2() # does the same as transforms.ToTensor()
+                    ]) 
+    # train_transform = transforms.Compose([transforms.Resize(img_size), 
+    #                                     transforms.ToTensor()])
     test_transform = transforms.Compose([transforms.Resize(img_size), 
                                         transforms.ToTensor()])
 
@@ -73,12 +82,6 @@ def _extracted_from_get_loaders_(batch_size, num_workers):
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
     return {'train': train_loader, 'validation': val_loader, 'test': test_loader}
-
-
-
-
-
-
 
 
 
@@ -167,15 +170,9 @@ class PH2_dataset(torch.utils.data.Dataset):
         image_path = self.image_paths[idx]
         label_path = self.label_paths[idx]
         
-        image = Image.open(image_path)
-        label = Image.open(label_path)
-        Y = 1*self.transform(label)
-        X = self.transform(image)
-        return X, Y    
-        
-
-
-
-
-
-
+        image = np.array(Image.open(image_path))
+        label =  np.array(Image.open(label_path))
+        transformed = self.transform(image=image, masks=label)
+        X = transformed['image']
+        Y = 1 * transformed['masks']
+        return X, Y 
