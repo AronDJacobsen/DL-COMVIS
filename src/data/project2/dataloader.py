@@ -22,8 +22,13 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
 
     if dataset == 'DRIVE':
         img_size = (256, 256)
-        train_transform = transforms.Compose([transforms.Resize(img_size), 
-                                            transforms.ToTensor()])
+        train_transform = A.Compose([
+                        A.Resize(img_size[0], img_size[1]),
+                        A.Rotate(limit=45, p=0.5) if augmentations['rotate'] else A.NoOp,
+                        A.HorizontalFlip(p=0.5) if augmentations['flip'] else A.NoOp,
+                        A.RandomBrightnessContrast(p=0.2) if augmentations['RandomBrightnessContrast'] else A.NoOp,
+                        A.pytorch.transforms.ToTensorV2() # does the same as transforms.ToTensor()
+                    ]) 
 
         testval_transform = transforms.Compose([transforms.Resize(img_size), 
                                             transforms.ToTensor()])
@@ -125,10 +130,11 @@ class DRIVE(torch.utils.data.Dataset):
         image_path = self.image_paths[idx]
         label_path = self.label_paths[idx]
         
-        image = Image.open(image_path)
-        label = Image.open(label_path)
-        Y = self.transform(label)
-        X = self.transform(image)
+        image = np.array(Image.open(image_path))
+        label = np.array(Image.open(label_path))
+        transformed = self.transform(image=image, masks=label)
+        X = transformed['image']
+        Y = 1 * transformed['masks']
         return X, Y
     
 ## Dataset classes - PH2
