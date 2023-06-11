@@ -107,12 +107,12 @@ def train(args):
 
 
     folds = 20 if args.dataset == 'DRIVE' else 1
-
+    returns = []
     for fold in range(folds):
 
         # Set up logger
         tb_logger = TensorBoardLogger(
-            save_dir=f"{args.log_path}/{args.experiment_name}_fold{fold}",
+            save_dir=f"{args.log_path}/{args.experiment_name}/{args.model_name}_fold{fold}",
             version=None,
             name=args.model_name,
         )
@@ -138,7 +138,9 @@ def train(args):
         trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}_fold{fold}.pt")
 
         # Testing the model
-        trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
+        returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
+
+    print(returns)
 
 
     # saving sweep plot if activated
