@@ -21,6 +21,7 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
 
     if dataset == 'DRIVE':
         img_size = (256, 256)
+        """
         train_transform = A.Compose([
                         A.Resize(img_size[0], img_size[1]),
                         A.Rotate(limit=45, p=0.5) if augmentations['rotate'] else A.NoOp,
@@ -28,12 +29,18 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
                         A.RandomBrightnessContrast(p=0.2) if augmentations['RandomBrightnessContrast'] else A.NoOp,
                         ToTensorV2() # does the same as transforms.ToTensor()
                     ], is_check_shapes=False) 
+        """
+        
+        train_transform = transforms.Compose([transforms.Resize(img_size), 
+                                        transforms.ToTensor()])
 
-        # test_transform = transforms.Compose([transforms.Resize(img_size), transforms.ToTensor()])
+        testval_transform = transforms.Compose([transforms.Resize(img_size), transforms.ToTensor()])
+        """
         testval_transform = A.Compose([
                         A.Resize(img_size[0], img_size[1]),
                         ToTensorV2() # does the same as transforms.ToTensor()
                     ], is_check_shapes=False) 
+        """
 
         return {
             fold: {
@@ -68,6 +75,7 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
 def _extracted_from_get_loaders_(batch_size, num_workers, augmentations):
     # won't work if halving in the CNN structure will end up with an odd number, numbers must be divisible by 2^N
     img_size = (288, 384)
+    """
     train_transform = A.Compose([
                         A.Resize(img_size[0], img_size[1]),
                         A.Rotate(limit=45, p=0.5) if augmentations['rotate'] else A.NoOp,
@@ -75,13 +83,17 @@ def _extracted_from_get_loaders_(batch_size, num_workers, augmentations):
                         A.RandomBrightnessContrast(p=0.2) if augmentations['RandomBrightnessContrast'] else A.NoOp,
                         ToTensorV2() # does the same as transforms.ToTensor()
                     ], is_check_shapes=False) 
-    # train_transform = transforms.Compose([transforms.Resize(img_size), 
-    #                                     transforms.ToTensor()])
-    # test_transform = transforms.Compose([transforms.Resize(img_size), transforms.ToTensor()])
+    """
+    train_transform = transforms.Compose([transforms.Resize(img_size), 
+                                         transforms.ToTensor()])
+    test_transform = transforms.Compose([transforms.Resize(img_size), transforms.ToTensor()])
+
+    """
     test_transform = A.Compose([
                     A.Resize(img_size[0], img_size[1]),
                     ToTensorV2() # does the same as transforms.ToTensor()
                 ], is_check_shapes=False) 
+    """
 
     trainset = PH2_dataset(mode='train', transform=train_transform)
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
@@ -135,11 +147,18 @@ class DRIVE(torch.utils.data.Dataset):
         image_path = self.image_paths[idx]
         label_path = self.label_paths[idx]
 
+        """ Albumentations
         image = np.array(Image.open(image_path))
         label =  np.array(Image.open(label_path)) * 1
         transformed = self.transform(image=image, mask=label)
-        X = transformed['image'].float() # TODO: Possibly have to divide by 255 as well, as ToTensorV2 doesn't seem to do this
+        X = transformed['image'].float() 
         Y = transformed['mask'].float()
+        """
+
+        image = Image.open(image_path)
+        label = Image.open(label_path)
+        Y = self.transform(label)
+        X = self.transform(image)
         return X, Y
     
 ## Dataset classes - PH2
@@ -182,9 +201,16 @@ class PH2_dataset(torch.utils.data.Dataset):
         image_path = self.image_paths[idx]
         label_path = self.label_paths[idx]
         
+        """ Albumentations
         image = np.array(Image.open(image_path))
         label =  np.array(Image.open(label_path)) * 1
         transformed = self.transform(image=image, mask=label)
         X = transformed['image'].float()
         Y = transformed['mask'].float()
+        """
+
+        image = Image.open(image_path)
+        label = Image.open(label_path)
+        Y = self.transform(label)
+        X = self.transform(image)        
         return X, Y 
