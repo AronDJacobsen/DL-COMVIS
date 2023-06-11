@@ -57,6 +57,7 @@ class BaseModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # extract input
         x, y = batch
+        y = y[:, None, :, :] #TODO: This is needed after Albumentations
         # predict
         y_hat = self.forward(x)
         # loss
@@ -77,6 +78,7 @@ class BaseModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # extract input
         x, y = batch
+        y = y[:, None, :, :] #TODO: This is needed after Albumentations
         # predict
         y_hat = self.forward(x)
         # loss
@@ -97,6 +99,7 @@ class BaseModel(pl.LightningModule):
     def test_step(self, batch, batch_idx): 
         # extract input
         x, y = batch
+        y = y[:, None, :, :] #TODO: This is needed after Albumentations
         # predict
         y_hat = self.forward(x)
         # loss

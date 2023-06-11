@@ -138,7 +138,7 @@ class DRIVE(torch.utils.data.Dataset):
         image = np.array(Image.open(image_path))
         label =  np.array(Image.open(label_path)) * 1
         transformed = self.transform(image=image, mask=label)
-        X = transformed['image'].float()
+        X = transformed['image'].float() # TODO: Possibly have to divide by 255 as well, as ToTensorV2 doesn't seem to do this
         Y = transformed['mask'].float()
         return X, Y
     
