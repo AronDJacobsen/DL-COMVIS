@@ -139,7 +139,7 @@ class DRIVE(torch.utils.data.Dataset):
         label =  np.array(Image.open(label_path)) * 1
         transformed = self.transform(image=image, mask=label)
         X = transformed['image']
-        Y = transformed['masks']
+        Y = transformed['mask']
         return X, Y
     
 ## Dataset classes - PH2
@@ -186,5 +186,5 @@ class PH2_dataset(torch.utils.data.Dataset):
         label =  np.array(Image.open(label_path)) * 1
         transformed = self.transform(image=image, mask=label)
         X = transformed['image']
-        Y = transformed['masks']
+        Y = transformed['mask']
         return X, Y 
