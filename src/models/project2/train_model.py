@@ -21,13 +21,15 @@ class BooleanListAction(argparse.Action):
 
 def parse_arguments():
 
+    
+
     parser = argparse.ArgumentParser()
 
     # GENERAL ()
     parser.add_argument("--seed", type=int, default=0,
                         help="Pseudo-randomness.")
     parser.add_argument("--dataset", type=str, default='PH2',
-                        help="Path to data set (PH2 or DRIVE).")
+                        help="Data set either (PH2 or DRIVE).")
     parser.add_argument("--log_path", type=str,
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
@@ -122,19 +124,21 @@ def train(args):
         logger=tb_logger,
     )
 
-    # Train model
-    trainer.fit(
-        model=model,
-        train_dataloaders = loaders['train'],
-        val_dataloaders = loaders['validation'], 
-    ) 
+    folds = 20 if args.dataset == 'DRIVE' else 1
 
+    for fold in range(folds):
+        # Train model
+        trainer.fit(
+            model=model,
+            train_dataloaders = loaders['train'] if args.dataset == 'PH2' else loaders[fold]['train'],
+            val_dataloaders   = loaders['validation'] if args.dataset == 'PH2' else loaders[fold]['validation'],
+        ) 
 
-    # manually you can save best checkpoints - 
-    trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}.pt")
+        # manually you can save best checkpoints - 
+        trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}_fold{fold}.pt")
 
-    # Testing the model
-    trainer.test(model, dataloaders=loaders['test'])
+        # Testing the model
+        trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
 
 
     # saving sweep plot if activated

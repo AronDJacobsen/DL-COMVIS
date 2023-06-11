@@ -25,36 +25,54 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1):
         testval_transform = transforms.Compose([transforms.Resize(img_size), 
                                             transforms.ToTensor()])
 
-        # Creating loader-dicts:        loaders[fold_number]['train']
-        # Remember to set seed within loader if specific seed is needed!
-        loaders = {fold: {'train': DataLoader( DRIVE(mode = 'train', fold = fold, transform = train_transform  ), batch_size=batch_size, shuffle=True, num_workers=num_workers), 
-                        'test' : DataLoader( DRIVE(mode = 'test',  fold = fold, transform = testval_transform), batch_size=batch_size, shuffle=True, num_workers=num_workers),
-                        'validation'  : DataLoader( DRIVE(mode = 'val',   fold = fold, transform = testval_transform), batch_size=batch_size, shuffle=True, num_workers=num_workers)} 
-                for fold in range(20) }
-
-        return loaders
-        
+        return {
+            fold: {
+                'train': DataLoader(
+                    DRIVE(mode='train', fold=fold, transform=train_transform),
+                    batch_size=batch_size,
+                    shuffle=True,
+                    num_workers=num_workers,
+                ),
+                'test': DataLoader(
+                    DRIVE(mode='test', fold=fold, transform=testval_transform),
+                    batch_size=batch_size,
+                    shuffle=True,
+                    num_workers=num_workers,
+                ),
+                'validation': DataLoader(
+                    DRIVE(mode='val', fold=fold, transform=testval_transform),
+                    batch_size=batch_size,
+                    shuffle=True,
+                    num_workers=num_workers,
+                ),
+            }
+            for fold in range(20)
+        }
+    
     if dataset == 'PH2':
 
-        # won't work if halving in the CNN structure will end up with an uneven number
-        img_size = (288, 384)
-        train_transform = transforms.Compose([transforms.Resize(img_size), 
-                                            transforms.ToTensor()])
-        test_transform = transforms.Compose([transforms.Resize(img_size), 
-                                            transforms.ToTensor()])
+        return _extracted_from_get_loaders_(batch_size, num_workers)
 
-        trainset = PH2_dataset(mode='train', transform=train_transform)
-        train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 
-        valset = PH2_dataset(mode='val', transform=train_transform)
-        val_loader = DataLoader(valset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+# TODO Rename this here and in `get_loaders`
+def _extracted_from_get_loaders_(batch_size, num_workers):
+    # won't work if halving in the CNN structure will end up with an uneven number
+    img_size = (288, 384)
+    train_transform = transforms.Compose([transforms.Resize(img_size), 
+                                        transforms.ToTensor()])
+    test_transform = transforms.Compose([transforms.Resize(img_size), 
+                                        transforms.ToTensor()])
 
-        testset = PH2_dataset(mode='test', transform=train_transform)
-        test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    
-        loaders = {'train': train_loader, 'validation': val_loader, 'test': test_loader}
-    
-        return loaders
+    trainset = PH2_dataset(mode='train', transform=train_transform)
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+    valset = PH2_dataset(mode='val', transform=test_transform)
+    val_loader = DataLoader(valset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+    testset = PH2_dataset(mode='test', transform=test_transform)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+
+    return {'train': train_loader, 'validation': val_loader, 'test': test_loader}
 
 
 
@@ -70,8 +88,8 @@ class DRIVE(torch.utils.data.Dataset):
         'Initialization'
         self.transform = transform
         data_path = os.path.join(data_path, 'training')
-        self.image_paths = sorted(glob.glob(data_path + '/images/*.tif'))
-        self.label_paths = sorted(glob.glob(data_path + '/1st_manual/*.gif'))
+        self.image_paths = sorted(glob.glob(f'{data_path}/images/*.tif'))
+        self.label_paths = sorted(glob.glob(f'{data_path}/1st_manual/*.gif'))
 
         # Shuffling
         self.image_paths, self.label_paths = sklearn.utils.shuffle(self.image_paths, self.label_paths, random_state=seed)
@@ -80,22 +98,18 @@ class DRIVE(torch.utils.data.Dataset):
         self.image_paths, self.label_paths = deque(self.image_paths), deque(self.label_paths)
         self.image_paths.rotate(fold)
         self.label_paths.rotate(fold)
-        
+
         # converting to list
         self.image_paths, self.label_paths = list(self.image_paths), list(self.label_paths)
-        
-        if mode == 'train':
-            self.image_paths, self.label_paths = self.image_paths[:14], self.label_paths[:14]
 
-        elif mode == 'test':
-            self.image_paths, self.label_paths = self.image_paths[14:-2], self.label_paths[14:-2]
+        if mode == 'test':
+            self.image_paths, self.label_paths = self.image_paths[15:-1], self.label_paths[15:-1]
+
+        elif mode == 'train':
+            self.image_paths, self.label_paths = self.image_paths[:15], self.label_paths[:15]
 
         elif mode == 'val':
-            self.image_paths, self.label_paths = self.image_paths[-2:], self.label_paths[-2:]   
-
-        # Entire dataset
-        else:
-            pass 
+            self.image_paths, self.label_paths = self.image_paths[-1:], self.label_paths[-1:]
             
         
     def __len__(self):
@@ -118,8 +132,8 @@ class PH2_dataset(torch.utils.data.Dataset):
     def __init__(self, mode, transform, data_path='/dtu/datasets1/02514/PH2_Dataset_images'):
         # Initialization
         self.transform = transform
-        self.image_paths = glob.glob(data_path + '/*/*_Dermoscopic_Image/*.bmp')
-        self.label_paths = glob.glob(data_path + '/*/*_lesion/*.bmp')
+        self.image_paths = glob.glob(f'{data_path}/*/*_Dermoscopic_Image/*.bmp')
+        self.label_paths = glob.glob(f'{data_path}/*/*_lesion/*.bmp')
         c = list(zip(self.image_paths, self.label_paths))
 
         random.shuffle(c)
