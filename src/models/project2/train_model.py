@@ -91,11 +91,11 @@ def train(args):
 
     # Load model
     model = get_model(args.model_name, args, loss_fun, optimizer)
-    
+
     # Get normalization constants
     # TODO:
     #train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
-    
+
 
     # Get data loaders with applied transformations
     loaders = get_loaders(
@@ -140,8 +140,12 @@ def train(args):
         # Testing the model
         returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
 
+    return_dict = {
+        key: sum(dct[key] for dct in returns) / len(returns)
+        for key in returns[0].keys()
+    }
     print(returns)
-
+    print(return_dict)
 
     # saving sweep plot if activated
     if args.initial_lr_steps != -1:
