@@ -146,7 +146,7 @@ def train(args):
         for key in returns[0][0].keys()
     }
 
-    with open("{args.log_path}/{args.experiment_name}/{args.model_name}_fold{fold}/test_dict.txt", "w") as fp:
+    with open(f"{args.log_path}/{args.experiment_name}/{args.model_name}/test_dict.txt", "w") as fp:
         json.dump(test_dict, fp)  # encode dict into JSON
 
     # saving sweep plot if activated
