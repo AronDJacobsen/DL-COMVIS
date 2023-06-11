@@ -105,28 +105,28 @@ def train(args):
         num_workers=args.num_workers,
     )
 
-    # Set up logger
-    tb_logger = TensorBoardLogger(
-        save_dir=f"{args.log_path}/{args.experiment_name}",
-        version=None,
-        name=args.model_name,
-    )
-
-
-    # Setup trainer
-    # Setup trainer
-    trainer = pl.Trainer(
-        devices=args.devices, 
-        accelerator='gpu', 
-        max_epochs = args.epochs,
-        log_every_n_steps = args.log_every_n,
-        callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
-        logger=tb_logger,
-    )
 
     folds = 20 if args.dataset == 'DRIVE' else 1
 
     for fold in range(folds):
+
+        # Set up logger
+        tb_logger = TensorBoardLogger(
+            save_dir=f"{args.log_path}/{args.experiment_name}_fold{fold}",
+            version=None,
+            name=args.model_name,
+        )
+
+        # Setup trainer
+        trainer = pl.Trainer(
+            devices=args.devices, 
+            accelerator='gpu', 
+            max_epochs = args.epochs,
+            log_every_n_steps = args.log_every_n,
+            callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
+            logger=tb_logger,
+        )
+
         # Train model
         trainer.fit(
             model=model,
