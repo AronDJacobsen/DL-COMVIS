@@ -19,7 +19,6 @@ from torch.utils.data import DataLoader
 
 def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict={'rotate': False, 'flip': False, 'RandomBrightnessContrast': False}):
 
-
     if dataset == 'DRIVE':
         img_size = (256, 256)
         train_transform = A.Compose([
@@ -30,8 +29,11 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
                         ToTensorV2() # does the same as transforms.ToTensor()
                     ], is_check_shapes=False) 
 
-        testval_transform = transforms.Compose([transforms.Resize(img_size), 
-                                            transforms.ToTensor()])
+        # test_transform = transforms.Compose([transforms.Resize(img_size), transforms.ToTensor()])
+        testval_transform = A.Compose([
+                        A.Resize(img_size[0], img_size[1]),
+                        ToTensorV2() # does the same as transforms.ToTensor()
+                    ], is_check_shapes=False) 
 
         return {
             fold: {
@@ -75,8 +77,11 @@ def _extracted_from_get_loaders_(batch_size, num_workers, augmentations):
                     ], is_check_shapes=False) 
     # train_transform = transforms.Compose([transforms.Resize(img_size), 
     #                                     transforms.ToTensor()])
-    test_transform = transforms.Compose([transforms.Resize(img_size), 
-                                        transforms.ToTensor()])
+    # test_transform = transforms.Compose([transforms.Resize(img_size), transforms.ToTensor()])
+    test_transform = A.Compose([
+                    A.Resize(img_size[0], img_size[1]),
+                    ToTensorV2() # does the same as transforms.ToTensor()
+                ], is_check_shapes=False) 
 
     trainset = PH2_dataset(mode='train', transform=train_transform)
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
