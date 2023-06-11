@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
 
 import sys
+import json
 #sys.path.append('../../')
 
 from src.utils import set_seed, get_optimizer
@@ -140,12 +141,13 @@ def train(args):
         # Testing the model
         returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
 
-    return_dict = {
-        key: sum(dct[key] for dct in returns) / len(returns)
-        for key in returns[0].keys()
+    test_dict = {
+        key: sum(dct[0][key] for dct in returns) / len(returns)
+        for key in returns[0][0].keys()
     }
-    print(returns)
-    print(return_dict)
+
+    with open("{args.log_path}/{args.experiment_name}/{args.model_name}_fold{fold}/test_dict.txt", "w") as fp:
+        json.dump(test_dict, fp)  # encode dict into JSON
 
     # saving sweep plot if activated
     if args.initial_lr_steps != -1:
