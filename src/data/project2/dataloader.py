@@ -10,6 +10,7 @@ import os
 from torchvision import transforms
 import torch
 import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import numpy as np
 
 
@@ -65,8 +66,8 @@ def _extracted_from_get_loaders_(batch_size, num_workers, augmentations):
                         A.Rotate(limit=45, p=0.5) if augmentations['rotate'] else A.NoOp,
                         A.HorizontalFlip(p=0.5) if augmentations['flip'] else A.NoOp,
                         A.RandomBrightnessContrast(p=0.2) if augmentations['RandomBrightnessContrast'] else A.NoOp,
-                        A.pytorch.transforms.ToTensorV2() # does the same as transforms.ToTensor()
-                    ]) 
+                        ToTensorV2() # does the same as transforms.ToTensor()
+                    ], is_check_shapes=False) 
     # train_transform = transforms.Compose([transforms.Resize(img_size), 
     #                                     transforms.ToTensor()])
     test_transform = transforms.Compose([transforms.Resize(img_size), 
@@ -171,8 +172,8 @@ class PH2_dataset(torch.utils.data.Dataset):
         label_path = self.label_paths[idx]
         
         image = np.array(Image.open(image_path))
-        label =  np.array(Image.open(label_path))
-        transformed = self.transform(image=image, masks=label)
+        label =  np.array(Image.open(label_path)) * 1
+        transformed = self.transform(image=image, mask=label)
         X = transformed['image']
-        Y = 1 * transformed['masks']
+        Y = transformed['masks']
         return X, Y 
