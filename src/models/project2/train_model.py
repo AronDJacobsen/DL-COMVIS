@@ -142,10 +142,10 @@ def train(args):
         ) 
 
         # manually you can save best checkpoints - 
-        trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}_fold{fold}.pt")
+        trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}_fold{fold}.ckpt")
 
         # Testing the model
-        returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
+        returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']), ckpt_path = 'best')
         
         trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
 
