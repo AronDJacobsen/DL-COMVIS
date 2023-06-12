@@ -150,7 +150,7 @@ class DRIVE(torch.utils.data.Dataset):
     
 ## Dataset classes - PH2
 class PH2_dataset(torch.utils.data.Dataset):
-    def __init__(self, mode, transform, data_path='/dtu/datasets1/02514/PH2_Dataset_images'):
+    def __init__(self, mode, transform, data_path='/dtu/datasets1/02514/PH2_Dataset_images', seed=420):
         # Initialization
         #data_path = '/Users/arond.jacobsen/Desktop/DTU/8_semester/02514_Deep_Learning_in_Computer_Vision/2_part/0_project/sample_data/PH2_Dataset_images'
         
@@ -158,7 +158,7 @@ class PH2_dataset(torch.utils.data.Dataset):
         self.image_paths = glob.glob(f'{data_path}/*/*_Dermoscopic_Image/*.bmp')
         self.label_paths = glob.glob(f'{data_path}/*/*_lesion/*.bmp')
         c = list(zip(self.image_paths, self.label_paths))
-
+        random.seed(seed)
         random.shuffle(c)
         self.image_paths, self.label_paths = zip(*c)        
 

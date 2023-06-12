@@ -41,7 +41,6 @@ loaders = get_loaders(
 img, mask = next(iter(loaders['train']))
 print('train')
 print(img.shape, mask.shape)
-print(img, mask)
 
 N = 4
 fig, ax = plt.subplots(N, 2, figsize=(10, 5))
@@ -53,7 +52,7 @@ plt.savefig('train_PH2.png')
 img, mask = next(iter(loaders['test']))
 print('test')
 print(img.shape, mask.shape)
-print(img, mask)
+print(sorted([i[-10:] for i in loaders['test'].dataset.image_paths]))
 
 fig, ax = plt.subplots(N, 2, figsize=(10, 5))
 for i in range(N):
