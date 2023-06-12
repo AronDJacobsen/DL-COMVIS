@@ -129,27 +129,27 @@ class BaseModel(pl.LightningModule):
         y_hat_sig = y_hat_sig.int()
         y_target = y.int()
         
-        print("shape batch", x.shape)
+        if batch_idx == 0:
         
-        batch_size = len(x)
+            batch_size = len(x)
 
-        for k in range(batch_size):
-            plt.subplot(3, batch_size, k+1)
-            plt.imshow(np.rollaxis(x[k].detach().cpu().numpy(), 0, 3), cmap='gray')
-            plt.title('Real')
-            plt.axis('off')
+            for k in range(batch_size):
+                plt.subplot(3, batch_size, k+1)
+                plt.imshow(np.rollaxis(x[k].detach().cpu().numpy(), 0, 3), cmap='gray')
+                plt.title('Real')
+                plt.axis('off')
 
-            plt.subplot(3, batch_size, k+1+batch_size)
-            plt.imshow(y_hat_sig[k, 0].detach().cpu().numpy(), cmap='gray')
-            plt.title('Output')
-            plt.axis('off')
+                plt.subplot(3, batch_size, k+1+batch_size)
+                plt.imshow(y_hat_sig[k, 0].detach().cpu().numpy(), cmap='gray')
+                plt.title('Output')
+                plt.axis('off')
+				
+                plt.subplot(3, batch_size, k+1+2*batch_size)                
+                plt.imshow(y_target[k, 0].detach().cpu().numpy(), cmap='gray')
+                plt.title('Label')
+                plt.axis('off')
 
-            plt.subplot(3, batch_size, k+1+2*batch_size)
-            plt.imshow(y_target[k, 0].detach().cpu().numpy(), cmap='gray')
-            plt.title('Label')
-            plt.axis('off')
-
-        plt.savefig(f"{self.args.log_path}/{self.args.experiment_name}/{self.args.model_name}_fold{self.fold}/prediction.png")
+            plt.savefig(f"{self.args.log_path}/{self.args.experiment_name}/{self.args.model_name}_fold{self.fold}/prediction.png")
 
         return y_hat_sig  
 
