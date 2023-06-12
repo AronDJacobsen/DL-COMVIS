@@ -10,11 +10,12 @@ from src.utils import accuracy, specificity, sensitivity, iou, dice_score
 
 
 def get_model(model_name, args, loss_fun, optimizer, fold):
-    if model_name == 'SegCNN':
-        return SegCNN(args, loss_fun, optimizer, fold)
-    if model_name == 'UNet':
+    if model_name == 'SegNet':
+        return SegNet(args, loss_fun, optimizer, fold)
+    elif model_name == 'UNet':
         return UNet(args, loss_fun, optimizer, fold)
-
+    else:
+        raise ValueError('unknown model name')
 
 
 
@@ -155,7 +156,7 @@ class BaseModel(pl.LightningModule):
 
 
 
-class SegCNN(BaseModel):
+class SegNet(BaseModel):
     '''
     Inherits functionality from basemodel
     '''
