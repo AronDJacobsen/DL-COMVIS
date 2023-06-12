@@ -132,10 +132,7 @@ def train(args):
             callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
             logger=tb_logger,
         )
-        
-        
-        trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
-		
+        		
         
         # Train model
         trainer.fit(
@@ -149,6 +146,9 @@ def train(args):
 
         # Testing the model
         returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
+        
+        trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
+
         
     test_dict = {
         key: sum(dct[0][key] for dct in returns) / len(returns)
