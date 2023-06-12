@@ -17,7 +17,7 @@ def get_loss(loss_functions, regularization, regularization_coef):
         raise ValueError('unknown loss function')
 
     # REGULARIZATION
-    if regularization != None:
+    if regularization != 'none':
         regularization_fun = get_regularization(regularization)
         return lambda y, y_hat: loss_fun(y, y_hat) + regularization_coef * regularization_fun(y_hat)
     else:

@@ -78,8 +78,8 @@ def parse_arguments():
     # MODEL BASED
     parser.add_argument("--model_name", type=str, default='SegCNN',
                         help="Model name - either 'SegCNN' or ...")
-    parser.add_argument("--norm", type=str, default = 'none',
-                        help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
+    #parser.add_argument("--norm", type=str, default = 'none',
+    #                    help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
 
     return parser.parse_args()
