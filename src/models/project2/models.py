@@ -128,22 +128,24 @@ class BaseModel(pl.LightningModule):
         y_hat_sig = (y_hat_sig>threshold).float()*1
         y_hat_sig = y_hat_sig.int()
         y_target = y.int()
-
-        batch_size = len(batch)
+        
+        print("shape batch", x.shape)
+        
+        batch_size = len(x)
 
         for k in range(batch_size):
-            plt.subplot(2, batch_size, k+1)
-            plt.imshow(np.rollaxis(x[k].numpy(), 0, 3), cmap='gray')
+            plt.subplot(3, batch_size, k+1)
+            plt.imshow(np.rollaxis(x[k].detach().cpu().numpy(), 0, 3), cmap='gray')
             plt.title('Real')
             plt.axis('off')
 
-            plt.subplot(2, batch_size, k+1+batch_size)
-            plt.imshow(y_hat_sig[k, 0], cmap='gray')
+            plt.subplot(3, batch_size, k+1+batch_size)
+            plt.imshow(y_hat_sig[k, 0].detach().cpu().numpy(), cmap='gray')
             plt.title('Output')
             plt.axis('off')
 
-            plt.subplot(2, batch_size, k+1+2*batch_size)
-            plt.imshow(y_target[k, 0], cmap='gray')
+            plt.subplot(3, batch_size, k+1+2*batch_size)
+            plt.imshow(y_target[k, 0].detach().cpu().numpy(), cmap='gray')
             plt.title('Label')
             plt.axis('off')
 

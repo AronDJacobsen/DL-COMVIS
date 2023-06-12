@@ -132,7 +132,7 @@ def train(args):
             callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
             logger=tb_logger,
         )
-
+        
         # Train model
         trainer.fit(
             model=model,
@@ -145,7 +145,7 @@ def train(args):
 
         # Testing the model
         returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
-
+        
         trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
 		
     test_dict = {
