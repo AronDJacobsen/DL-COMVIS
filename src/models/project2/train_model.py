@@ -6,6 +6,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 import sys
 import json
+import os
 #sys.path.append('../../')
 
 from src.utils import set_seed, get_optimizer
@@ -19,6 +20,8 @@ class BooleanListAction(argparse.Action):
         # Convert the string values to booleans
         bool_values = [bool(int(v)) for v in values]
         setattr(namespace, self.dest, bool_values)    
+
+# CUDA_VISIBLE_DEVICES=1 python src/models/project2/train_model.py --dataset PH2 --model_name UNet  --log_path /work3/$USER/repos/DL-COMVIS/logs/project2 --save_path /work3/$USER/repos/DL-COMVIS/models/project2  --batch_size 2 --lr 0.001 --initial_lr_steps -1 --optimizer Adam --epochs 2 --num_workers 24 --devices -1 --experiment_name test --augmentation 1 1 --loss BCE --norm none
 
 def parse_arguments():
 
@@ -72,7 +75,7 @@ def parse_arguments():
     parser.add_argument("--model_name", type=str,
                         help="Model name - either 'SegCNN' or ...")
     parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, 
-                        help='List of booleans, i.e. [flip, rotation, noise]')
+                        help='List of booleans, i.e. [flip, rotation]')
     parser.add_argument("--norm", type=str, default = 'none',
                         help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
@@ -101,6 +104,7 @@ def train(args):
         batch_size=args.batch_size, 
         seed=args.seed, 
         num_workers=args.num_workers,
+        augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]}
     )
 
 
@@ -146,7 +150,9 @@ def train(args):
         for key in returns[0][0].keys()
     }
 
-    with open(f"{args.log_path}/{args.experiment_name}/{args.model_name}/test_dict.txt", "w") as fp:
+    if not os.path.exists(f"{args.log_path}/{args.experiment_name}/{args.model_name}"):
+        os.makedirs(f"{args.log_path}/{args.experiment_name}/{args.model_name}")
+    with open(f"{args.log_path}/{args.experiment_name}/{args.model_name}/test_dict.txt", "w+") as fp:
         json.dump(test_dict, fp)  # encode dict into JSON
 
     # saving sweep plot if activated
