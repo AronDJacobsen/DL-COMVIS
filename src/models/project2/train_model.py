@@ -90,9 +90,6 @@ def train(args):
     loss_fun = get_loss(args.loss)
     optimizer = get_optimizer(args.optimizer)
 
-    # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer)
-
     # Get normalization constants
     # TODO:
     #train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
@@ -110,6 +107,9 @@ def train(args):
     folds = 20 if args.dataset == 'DRIVE' else 1
     returns = []
     for fold in range(folds):
+
+        # Load model
+        model = get_model(args.model_name, args, loss_fun, optimizer)
 
         # Set up logger
         tb_logger = TensorBoardLogger(
