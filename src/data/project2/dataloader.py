@@ -74,7 +74,7 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
 # TODO Rename this here and in `get_loaders`
 def _extracted_from_get_loaders_(batch_size, num_workers, augmentations):
     # won't work if halving in the CNN structure will end up with an odd number, numbers must be divisible by 2^N
-    img_size = (288, 384)
+    img_size = (256, 256)
     
     train_transform = A.Compose([
                         A.Resize(img_size[0], img_size[1]),
