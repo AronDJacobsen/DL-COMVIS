@@ -62,7 +62,7 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
                     num_workers=num_workers,
                 ),
             }
-            for fold in range(20)
+            for fold in range(5)
         }
     
     elif dataset == 'PH2':
@@ -114,8 +114,8 @@ class DRIVE(torch.utils.data.Dataset):
 
         # rolling 
         self.image_paths, self.label_paths = deque(self.image_paths), deque(self.label_paths)
-        self.image_paths.rotate(fold)
-        self.label_paths.rotate(fold)
+        self.image_paths.rotate(fold*4)
+        self.label_paths.rotate(fold*4)
 
         # converting to list
         self.image_paths, self.label_paths = list(self.image_paths), list(self.label_paths)
