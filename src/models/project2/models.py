@@ -3,15 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateFinder
 import pytorch_lightning as pl
+import matplotlib.pyplot as plt
+import numpy as np
 
 from src.utils import accuracy, specificity, sensitivity, iou, dice_score
 
 
-def get_model(model_name, args, loss_fun, optimizer):
+def get_model(model_name, args, loss_fun, optimizer, fold):
     if model_name == 'SegCNN':
-        return SegCNN(args, loss_fun, optimizer)
+        return SegCNN(args, loss_fun, optimizer, fold)
     if model_name == 'UNet':
-        return UNet(args, loss_fun, optimizer)
+        return UNet(args, loss_fun, optimizer, fold)
 
 
 
@@ -21,12 +23,14 @@ class BaseModel(pl.LightningModule):
     '''
     Contains all recurring functionality
     '''
-    def __init__(self, args, loss_fun, optimizer):
+    def __init__(self, args, loss_fun, optimizer, fold):
         super().__init__()
         self.args = args
         self.lr = self.args.lr
         self.loss_fun = loss_fun
         self.optimizer = optimizer
+
+        self.fold = fold
 
         # what to log in training and validation
         self.logs = {
@@ -115,14 +119,46 @@ class BaseModel(pl.LightningModule):
         for name, fun in self.metrics.items():
             self.log('Test '+name, fun(y_hat_sig, y))
 
+    def predict_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.forward(x)
+        # predicting
+        y_hat_sig = F.sigmoid(y_hat)#.detach().cpu() # todo?
+        threshold = torch.tensor([0.5], device = self.device)
+        y_hat_sig = (y_hat_sig>threshold).float()*1
+        y_hat_sig = y_hat_sig.int()
+        y_target = y.int()
+
+        batch_size = len(batch)
+
+        for k in range(batch_size):
+            plt.subplot(2, batch_size, k+1)
+            plt.imshow(np.rollaxis(x[k].numpy(), 0, 3), cmap='gray')
+            plt.title('Real')
+            plt.axis('off')
+
+            plt.subplot(2, batch_size, k+1+batch_size)
+            plt.imshow(y_hat_sig[k, 0], cmap='gray')
+            plt.title('Output')
+            plt.axis('off')
+
+            plt.subplot(2, batch_size, k+1+2*batch_size)
+            plt.imshow(y_target[k, 0], cmap='gray')
+            plt.title('Label')
+            plt.axis('off')
+
+        plt.savefig(f"{self.args.log_path}/{self.args.experiment_name}/{self.args.model_name}_fold{self.fold}/prediction.png")
+
+        return y_hat_sig  
+
 
 
 class SegCNN(BaseModel):
     '''
     Inherits functionality from basemodel
     '''
-    def __init__(self, args, loss_fun, optimizer):
-        super().__init__(args, loss_fun, optimizer)
+    def __init__(self, args, loss_fun, optimizer, fold):
+        super().__init__(args, loss_fun, optimizer, fold)
         
         # encoder (downsampling)
         self.enc_conv0 = nn.Conv2d(3, 64, 3, padding=1)
@@ -166,8 +202,8 @@ class SegCNN(BaseModel):
 
 
 class UNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer):
-        super().__init__(args, loss_fun, optimizer)
+    def __init__(self, args, loss_fun, optimizer, fold):
+        super().__init__(args, loss_fun, optimizer, fold)
     
 
         # encoder (downsampling)

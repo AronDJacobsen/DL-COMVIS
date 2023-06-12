@@ -114,7 +114,7 @@ def train(args):
     for fold in range(folds):
 
         # Load model
-        model = get_model(args.model_name, args, loss_fun, optimizer)
+        model = get_model(args.model_name, args, loss_fun, optimizer, fold)
 
         # Set up logger
         tb_logger = TensorBoardLogger(
@@ -146,6 +146,8 @@ def train(args):
         # Testing the model
         returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']))
 
+        trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
+		
     test_dict = {
         key: sum(dct[0][key] for dct in returns) / len(returns)
         for key in returns[0][0].keys()
