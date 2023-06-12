@@ -9,11 +9,11 @@ import numpy as np
 from src.utils import accuracy, specificity, sensitivity, iou, dice_score
 
 
-def get_model(model_name, args, loss_fun, optimizer, fold):
+def get_model(model_name, args, loss_fun, optimizer, fold, out=False):
     if model_name == 'SegNet':
-        return SegNet(args, loss_fun, optimizer, fold)
+        return SegNet(args, loss_fun, optimizer, fold, out=out)
     elif model_name == 'UNet':
-        return UNet(args, loss_fun, optimizer, fold)
+        return UNet(args, loss_fun, optimizer, fold, out=out)
     else:
         raise ValueError('unknown model name')
 
@@ -24,14 +24,15 @@ class BaseModel(pl.LightningModule):
     '''
     Contains all recurring functionality
     '''
-    def __init__(self, args, loss_fun, optimizer, fold):
+    def __init__(self, args, loss_fun, optimizer, fold, out=False):
         super().__init__()
         self.args = args
         self.lr = self.args.lr
         self.loss_fun = loss_fun
         self.optimizer = optimizer
-
+        self.out = out
         self.fold = fold
+        self.offset = 0
 
         # what to log in training and validation
         self.logs = {
@@ -152,6 +153,20 @@ class BaseModel(pl.LightningModule):
 
             plt.savefig(f"{self.args.log_path}/{self.args.experiment_name}/{self.args.model_name}_fold{self.fold}/prediction.png")
 
+        
+        if self.out:
+            for k in range(len(x)):
+                fig = plt.figure()
+                plt.imshow(y_hat_sig[k, 0].detach().cpu().numpy(), cmap='gray')
+                plt.savefig(f"{self.args.log_path}/{self.args.experiment_name}/{self.args.model_name}_fold{self.fold}/prediction_mask{k+self.offset}.png")
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.imshow(np.rollaxis(x[k].detach().cpu().numpy(), 0, 3), cmap='gray')
+                plt.savefig(f"{self.args.log_path}/{self.args.experiment_name}/{self.args.model_name}_fold{self.fold}/prediction_img{k+self.offset}.png", bbox_inches='tight')
+                plt.close(fig)
+            self.offset += len(x)
+
         return y_hat_sig  
 
 
@@ -160,8 +175,8 @@ class SegNet(BaseModel):
     '''
     Inherits functionality from basemodel
     '''
-    def __init__(self, args, loss_fun, optimizer, fold):
-        super().__init__(args, loss_fun, optimizer, fold)
+    def __init__(self, args, loss_fun, optimizer, fold, out):
+        super().__init__(args, loss_fun, optimizer, fold, out)
         
         # encoder (downsampling)
         self.enc_conv0 = nn.Conv2d(3, 64, 3, padding=1)
@@ -205,8 +220,8 @@ class SegNet(BaseModel):
 
 
 class UNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, fold):
-        super().__init__(args, loss_fun, optimizer, fold)
+    def __init__(self, args, loss_fun, optimizer, fold, out):
+        super().__init__(args, loss_fun, optimizer, fold, out)
     
 
         # encoder (downsampling)

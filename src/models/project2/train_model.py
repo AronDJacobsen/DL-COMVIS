@@ -44,6 +44,9 @@ def parse_arguments():
                         help="Determines console logging.")
     parser.add_argument("--devices", type=int, default=2, 
                         help="Number of devices"),
+    
+    parser.add_argument("--out", type=bool, default=False,
+                        help="output individual predicted images")
                         
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
@@ -114,7 +117,7 @@ def train(args):
     for fold in range(folds):
 
         # Load model
-        model = get_model(args.model_name, args, loss_fun, optimizer, fold)
+        model = get_model(args.model_name, args, loss_fun, optimizer, fold, out=args.out)
 
         # Set up logger
         tb_logger = TensorBoardLogger(
