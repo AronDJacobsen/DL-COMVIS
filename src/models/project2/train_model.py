@@ -67,7 +67,7 @@ def parse_arguments():
                         help="The optimizer to be used.")
     parser.add_argument("--loss", type=str, default = 'BCE',
                         help="Loss function - one of: [BSE, FOCAL, DICE]")
-    parser.add_argument("--reg", type=str, default = 'sparsity',
+    parser.add_argument("--reg", type=str, default = 'none',
                         help="Regularization - one of: [none, centered, sparsity, tv")
     parser.add_argument("--reg_coef", type=float, default = 0.1,
                         help="Regularization coefficient")
@@ -112,7 +112,7 @@ def train(args):
     )
 
 
-    folds = 20 if args.dataset == 'DRIVE' else 1
+    folds = 5 if args.dataset == 'DRIVE' else 1
     returns = []
     for fold in range(folds):
 

@@ -121,13 +121,13 @@ class DRIVE(torch.utils.data.Dataset):
         self.image_paths, self.label_paths = list(self.image_paths), list(self.label_paths)
 
         if mode == 'val':
-            self.image_paths, self.label_paths = self.image_paths[15:-1], self.label_paths[15:-1]
+            self.image_paths, self.label_paths = self.image_paths[15:-4], self.label_paths[15:-4]
 
         elif mode == 'train':
             self.image_paths, self.label_paths = self.image_paths[:15], self.label_paths[:15]
 
         elif mode == 'test':
-            self.image_paths, self.label_paths = self.image_paths[-1:], self.label_paths[-1:]
+            self.image_paths, self.label_paths = self.image_paths[-4:], self.label_paths[-4:]
             
         
     def __len__(self):
