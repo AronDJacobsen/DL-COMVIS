@@ -139,13 +139,12 @@ class DRIVE(torch.utils.data.Dataset):
         image_path = self.image_paths[idx]
         label_path = self.label_paths[idx]
 
-        image = np.array(Image.open(image_path))/ 255 
+        image = np.array(Image.open(image_path)) / 255 
         image = image.astype(np.float32)
-        label =  np.array(Image.open(label_path)) * 1.0
+        label =  np.array(Image.open(label_path)) / 255
         transformed = self.transform(image=image, mask=label)
         X = transformed['image']
         Y = transformed['mask'].unsqueeze(0)
-
         return X, Y
     
 ## Dataset classes - PH2
