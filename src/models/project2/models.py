@@ -147,7 +147,7 @@ class BaseModel(pl.LightningModule):
                 plt.axis('off')
 				
                 plt.subplot(3, batch_size, k+1+2*batch_size)                
-                plt.imshow(y_target[k, 0].detach().cpu().numpy(), cmap='gray')
+                plt.imshow(y_target[k, 0].detach().cpu().numpy().transpose(1,2,0), cmap='gray')
                 plt.title('Label')
                 plt.axis('off')
 

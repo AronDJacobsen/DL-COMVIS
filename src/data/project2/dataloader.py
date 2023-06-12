@@ -21,9 +21,14 @@ def NoOp(image, **kwargs):
     return image
 
 def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict={'rotate': False, 'flip': False}):
+    img_size = (256, 256)
+    test_transform = A.Compose([
+                A.Resize(img_size[0], img_size[1]),
+                ToTensorV2() # does the same as transforms.ToTensor()
+            ], is_check_shapes=False) 
 
     if dataset == 'DRIVE':
-        img_size = (256, 256)
+        
 
         train_transform = A.Compose([
                         A.Resize(img_size[0], img_size[1]),
@@ -31,10 +36,7 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
                         A.HorizontalFlip(p=0.5) if augmentations['flip'] else A.Lambda(NoOp, NoOp),
                         ToTensorV2() # does the same as transforms.ToTensor()
                     ], is_check_shapes=False) 
-        test_transform = A.Compose([
-                A.Resize(img_size[0], img_size[1]),
-                ToTensorV2() # does the same as transforms.ToTensor()
-            ], is_check_shapes=False) 
+        
         
         # train_transform = transforms.Compose([transforms.Resize(img_size), 
         #                                 transforms.ToTensor()])
@@ -67,6 +69,8 @@ def get_loaders(dataset, batch_size=2, seed=1, num_workers=1, augmentations:dict
     
     elif dataset == 'PH2':
         return _extracted_from_get_loaders_(batch_size, num_workers, augmentations)
+    elif dataset == 'DRIVE_TEST':
+        return {'test':DataLoader(DRIVE_TEST(transform=test_transform), batch_size=batch_size, shuffle=True, num_workers=num_workers)}
     else:
         raise ValueError('unknown dataset')
     
@@ -146,6 +150,27 @@ class DRIVE(torch.utils.data.Dataset):
         X = transformed['image']
         Y = transformed['mask'].unsqueeze(0)
         return X, Y
+    
+class DRIVE_TEST(torch.utils.data.Dataset):
+    def __init__(self, transform = transforms.ToTensor(), data_path='/dtu/datasets1/02514/DRIVE/test'):
+        'Initialization'
+        self.transform = transform
+        data_path = os.path.join(data_path, 'images')
+        self.image_paths = sorted(glob.glob(f'{data_path}/*.tif'))        
+        
+    def __len__(self):
+        'Returns the total number of samples'
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        'Generates one sample of data'
+        image_path = self.image_paths[idx]
+
+        image = np.array(Image.open(image_path)) / 255 
+        image = image.astype(np.float32)
+        transformed = self.transform(image=image)
+        X = transformed['image']
+        return X, torch.zeros((6, 1, 256,256))
     
 ## Dataset classes - PH2
 class PH2_dataset(torch.utils.data.Dataset):
