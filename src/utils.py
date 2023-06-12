@@ -33,23 +33,23 @@ def get_optimizer(optimizer):
 
 epsilon = 1e-7
 
-def accuracy(y_pred, y_true):
+def accuracy(y, y_hat):
     """accuracy of segmentation wrt. ground truth mask"""
-    return (y_pred == y_true).sum().item() / (y_true.numel() + epsilon)
+    return (y_hat == y).sum().item() / (y.numel() + epsilon)
 
-def specificity(y_pred, y_true):
+def specificity(y, y_hat):
     """specificity of segmentation wrt. ground truth mask"""
-    return ((y_pred == y_true) & (y_true == 0)).sum().item() / ((y_true == 0).sum().item() + epsilon)
+    return ((y_hat == y) & (y == 0)).sum().item() / ((y == 0).sum().item() + epsilon)
 
-def sensitivity(y_pred, y_true):
+def sensitivity(y, y_hat):
     """sensitivity of segmentation wrt. ground truth mask"""
-    return ((y_pred == y_true) & (y_true == 1)).sum().item() / ((y_true == 1).sum().item() + epsilon)
+    return ((y_hat == y) & (y == 1)).sum().item() / ((y == 1).sum().item() + epsilon)
 
-def iou(y_pred, y_true):
+def iou(y, y_hat):
     """intersection over union of segmentation wrt. ground truth mask"""
-    return (y_pred & y_true).sum().item() / ((y_pred | y_true).sum().item() + epsilon)
+    return (y_hat & y).sum().item() / ((y_hat | y).sum().item() + epsilon)
 
-def dice_score(y_pred, y_true):
+def dice_score(y, y_hat):
     """dice coefficient of segmentation wrt. ground truth mask"""
-    return 2 * (y_pred & y_true).sum().item() / ((y_pred.sum().item() + y_true.sum().item()) + epsilon)
+    return 2 * (y_hat & y).sum().item() / ((y_hat.sum().item() + y.sum().item()) + epsilon)
 
