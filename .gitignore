@@ -51,6 +51,9 @@ coverage.xml
 # Django stuff:
 *.log
 
+# Training stuff
+hparams.yaml
+
 # Sphinx documentation
 docs/_build/
 

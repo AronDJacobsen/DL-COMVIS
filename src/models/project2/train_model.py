@@ -34,7 +34,7 @@ def parse_arguments():
                         help="Pseudo-randomness.")
     parser.add_argument("--dataset", type=str, default='PH2',
                         help="Data set either (PH2 or DRIVE).")
-    parser.add_argument("--log_path", type=str,
+    parser.add_argument("--log_path", type=str, default = 'lightning_logs',
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
                         help="Logging interval.")
@@ -44,7 +44,6 @@ def parse_arguments():
                         help="Determines console logging.")
     parser.add_argument("--devices", type=int, default=2, 
                         help="Number of devices"),
-    
                         
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
@@ -59,26 +58,28 @@ def parse_arguments():
                         help="Minimum allowed learning rater.")
     parser.add_argument("--max_lr", type=float, default=1,
                         help="Maximum allowed learning rate.")
-    parser.add_argument("--initial_lr_steps", type=int, default=1000,
+    parser.add_argument("--initial_lr_steps", type=int, default=-1,
                         help="Number of initial steps for finding learning rate, -1 to deactivate.")
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
     parser.add_argument("--loss", type=str, default = 'BCE',
-                        help="Loss function - one of: [BSE, BCE_total_variation, FOCAL, DICE]")
+                        help="Loss function - one of: [BSE, FOCAL, DICE]")
+    parser.add_argument("--reg", type=str, default = 'sparsity',
+                        help="Regularization - one of: [none, centered, sparsity, tv")
+    parser.add_argument("--reg_coef", type=float, default = 0.1,
+                        help="Regularization coefficient")
+    parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, 
+                        help='List of booleans, i.e. [flip, rotation]')
     
     # EXPERIMENT NAMING
-    parser.add_argument("--experiment_name", type=str,
+    parser.add_argument("--experiment_name", type=str, default='test',
                         help="Sets the overall experiment name.")
     
     # MODEL BASED
-    # To make the input integers
-    parser.add_argument("--model_name", type=str,
+    parser.add_argument("--model_name", type=str, default='SegCNN',
                         help="Model name - either 'SegCNN' or ...")
-    parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, 
-                        help='List of booleans, i.e. [flip, rotation]')
     parser.add_argument("--norm", type=str, default = 'none',
                         help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
-
 
 
     return parser.parse_args()
@@ -90,7 +91,7 @@ def train(args):
     set_seed(args.seed)
 
     # Get functions
-    loss_fun = get_loss(args.loss)
+    loss_fun = get_loss(args.loss, args.reg, args.reg_coef)
     optimizer = get_optimizer(args.optimizer)
 
     # Get normalization constants
