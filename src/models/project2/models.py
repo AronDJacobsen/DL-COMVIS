@@ -39,10 +39,10 @@ class BaseModel(pl.LightningModule):
             }
         # what to calculate when predicting
         self.metrics = {
-            'Dice score': dice_score,
-            'IoU'         : iou,
-            'Sensitivity' : sensitivity,
             'Specificity' : specificity,
+            'Sensitivity' : sensitivity,
+            'IoU'         : iou,
+            'Dice score': dice_score,
             }
         self.log_dict = {}
 
