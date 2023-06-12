@@ -61,7 +61,7 @@ def parse_arguments():
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
     parser.add_argument("--loss", type=str, default = 'BCE',
-                        help="Loss function - one of: [BSE, etc.")
+                        help="Loss function - one of: [BSE, BCE_total_variation, FOCAL, DICE]")
     
     # EXPERIMENT NAMING
     parser.add_argument("--experiment_name", type=str,
