@@ -157,7 +157,7 @@ def train(args):
 
     if not os.path.exists(f"{args.log_path}/{args.experiment_name}/{args.model_name}"):
         os.makedirs(f"{args.log_path}/{args.experiment_name}/{args.model_name}")
-    with open(f"{args.log_path}/{args.experiment_name}/{args.model_name}/test_dict.txt", "w+") as fp:
+    with open(f"{args.log_path}/{args.experiment_name}/{args.model_name}_fold{fold}/test_dict.txt", "w+") as fp:
         json.dump(test_dict, fp)  # encode dict into JSON
 
     # saving sweep plot if activated
