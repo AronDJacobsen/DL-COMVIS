@@ -145,9 +145,9 @@ def train(args):
         trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}_fold{fold}.ckpt")
 
         # Testing the model
-        returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test']), ckpt_path = 'best')
+        returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'], ckpt_path = 'best'))
         
-        trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'])
+        trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'], ckpt_path = 'best')
 
         
     test_dict = {
