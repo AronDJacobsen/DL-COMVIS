@@ -21,19 +21,18 @@ class BooleanListAction(argparse.Action):
         bool_values = [bool(int(v)) for v in values]
         setattr(namespace, self.dest, bool_values)    
 
-# CUDA_VISIBLE_DEVICES=1 python src/models/project2/train_model.py --dataset DRIVE --model_name UNet  --log_path /work3/$USER/02514/DL-COMVIS/logs/project2/DRIVE --save_path /work3/$USER/02514/DL-COMVIS/models/project2/DRICE  --batch_size 6 --lr 0.001 --initial_lr_steps -1 --optimizer Adam --epochs 100 --num_workers 24 --devices -1 --experiment_name DRIVE --augmentation 1 1 --loss BCE  --reg none --reg_coef 0 
+# CUDA_VISIBLE_DEVICES=1 python src/models/project2/predict_model.py --dataset DRIVE_TEST --model_name UNet  --log_path /work3/$USER/02514/DL-COMVIS/logs/project2/DRIVE --save_path /work3/$USER/02514/DL-COMVIS/models/project2/DRIVE  --batch_size 6 --lr 0.001 --initial_lr_steps -1 --optimizer Adam --epochs 1 --num_workers 24 --devices -1 --experiment_name DRIVE_TEST --augmentation 1 1 --loss BCE  --model UNet --reg none --reg_coef 0 --path_model /work3/s184984/02514/DL-COMVIS/model/project2/DRIVE_UNet_lr=0.001_BCE_AUG/UNet_fold4.ckpt --out 1
 
 def parse_arguments():
 
     
-
     parser = argparse.ArgumentParser()
 
     # GENERAL ()
     parser.add_argument("--seed", type=int, default=0,
                         help="Pseudo-randomness.")
     parser.add_argument("--dataset", type=str, default='PH2',
-                        help="Data set either (PH2 or DRIVE).")
+                        help="Data set either (PH2 or DRIVE, or DRIVE_TEST).")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
@@ -47,6 +46,7 @@ def parse_arguments():
     
     parser.add_argument("--out", type=bool, default=False,
                         help="output individual predicted images")
+    parser.add_argument("--path_model", type=str, default='None')
                         
     # TRAINING PARAMETERS
     parser.add_argument("--batch_size", type=int, default=64,
@@ -67,7 +67,7 @@ def parse_arguments():
                         help="The optimizer to be used.")
     parser.add_argument("--loss", type=str, default = 'BCE',
                         help="Loss function - one of: [BSE, FOCAL, DICE]")
-    parser.add_argument("--reg", type=str, default = 'none',
+    parser.add_argument("--reg", type=str, default = 'sparsity',
                         help="Regularization - one of: [none, centered, sparsity, tv")
     parser.add_argument("--reg_coef", type=float, default = 0.1,
                         help="Regularization coefficient")
@@ -84,23 +84,17 @@ def parse_arguments():
     #parser.add_argument("--norm", type=str, default = 'none',
     #                    help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
 
-
     return parser.parse_args()
     
 
 
-def train(args):
+def test(args):
     # Set random seed
     set_seed(args.seed)
 
     # Get functions
     loss_fun = get_loss(args.loss, args.reg, args.reg_coef)
     optimizer = get_optimizer(args.optimizer)
-
-    # Get normalization constants
-    # TODO:
-    #train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
-
 
     # Get data loaders with applied transformations
     loaders = get_loaders(
@@ -111,63 +105,28 @@ def train(args):
         augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]}
     )
 
+    # Load model
+    model = get_model(args.model_name, args, loss_fun, optimizer, 0, out=args.out)
 
-    folds = 5 if args.dataset == 'DRIVE' else 1
-    returns = []
-    for fold in range(folds):
+    model = model.load_from_checkpoint(args.path_model)
+    model.eval()
+    model.out = args.out
 
-        # Load model
-        model = get_model(args.model_name, args, loss_fun, optimizer, fold, out=args.out)
+    # Set up logger
+    tb_logger = None
 
-        # Set up logger
-        tb_logger = TensorBoardLogger(
-            save_dir=f"{args.log_path}/{args.experiment_name}/{args.model_name}_fold{fold}",
-            version=None,
-            name=args.model_name,
-        )
-
-        # Setup trainer
-        trainer = pl.Trainer(
-            devices=args.devices, 
-            accelerator='gpu', 
-            max_epochs = args.epochs,
-            log_every_n_steps = args.log_every_n,
-            callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
-            logger=tb_logger,
-        )
-        		
-        
-        # Train model
-        trainer.fit(
-            model=model,
-            train_dataloaders = loaders['train'] if args.dataset == 'PH2' else loaders[fold]['train'],
-            val_dataloaders   = loaders['validation'] if args.dataset == 'PH2' else loaders[fold]['validation'],
-        ) 
-
-        # manually you can save best checkpoints - 
-        trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}_fold{fold}.ckpt")
-
-        # Testing the model
-        returns.append(trainer.test(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'], ckpt_path = 'best'))
-        
-        trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders[fold]['test'], ckpt_path = 'best')
-
-        
-    test_dict = {
-        key: sum(dct[0][key] for dct in returns) / len(returns)
-        for key in returns[0][0].keys()
-    }
-
-    if not os.path.exists(f"{args.log_path}/{args.experiment_name}/{args.model_name}"):
-        os.makedirs(f"{args.log_path}/{args.experiment_name}/{args.model_name}")
-    with open(f"{args.log_path}/{args.experiment_name}/{args.model_name}_fold{fold}/test_dict.txt", "w+") as fp:
-        json.dump(test_dict, fp)  # encode dict into JSON
-
-    # saving sweep plot if activated
-    if args.initial_lr_steps != -1:
-        fig = trainer.model.lr_finder.optimal_lr.plot(suggest=True, show=False);
-        plt.savefig(f"{args.save_path}/{args.experiment_name}/lr_sweep.png")
-        plt.close(fig)
+    # Setup trainer
+    trainer = pl.Trainer(
+        devices=args.devices, 
+        accelerator='gpu', 
+        max_epochs = args.epochs,
+        log_every_n_steps = args.log_every_n,
+        callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
+        logger=tb_logger,
+    )
+    print(model.out)
+    
+    trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders['test'], ckpt_path = args.path_model)
 
 
 if __name__ == '__main__':
@@ -176,8 +135,5 @@ if __name__ == '__main__':
     args = parse_arguments()
     
     # Train model
-    train(args)
-
-
-
+    test(args)
 
