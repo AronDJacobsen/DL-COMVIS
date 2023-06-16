@@ -12,9 +12,11 @@ from torchmetrics.classification import Accuracy
 from src.utils import accuracy, IoU
 
 
-def get_model(model_name, args, loss_fun, optimizer, out=False):
-    if model_name == 'efficientnet_b4':
-        return EfficientNet(args, loss_fun, optimizer, out=out)
+def get_model(model_name, args, loss_fun, optimizer, out=False, img_size=(512,512)):
+    if model_name == 'testnet':
+        return TestNet(args, loss_fun, optimizer, out=out, img_size=img_size)
+    elif model_name == 'efficientnet_b4':
+        return EfficientNet(args, loss_fun, optimizer, out=out, img_size=img_size)
     else:
         raise ValueError('unknown model name')
 
@@ -25,7 +27,7 @@ class BaseModel(pl.LightningModule):
     '''
     Contains all recurring functionality
     '''
-    def __init__(self, args, loss_fun, optimizer, out):
+    def __init__(self, args, loss_fun, optimizer, out, num_classes):
         super().__init__()
         self.args = args
         self.lr = self.args.lr
@@ -33,7 +35,7 @@ class BaseModel(pl.LightningModule):
         self.optimizer = optimizer
         self.out = out
         self.offset = 0
-        self.num_classes = 29
+        self.num_classes = num_classes
 
         # what to log in training and validation
         self.logs = {
@@ -150,9 +152,29 @@ class BaseModel(pl.LightningModule):
             self.offset += len(x)
 
 
+class TestNet(BaseModel):
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, img_size):
+        super().__init__(args, loss_fun, optimizer, out, num_classes)
+        h, w = img_size
+        self.fc1 = nn.Linear(h*w*3, 128)  # 5*5 from image dimension
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, num_classes)
+        self.relu = nn.ReLU()
+
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        x = self.relu(x)
+        x = self.fc3(x)
+        return x
+
+
 class EfficientNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out):
-        super().__init__(args, loss_fun, optimizer, out)
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, img_size):
+        super().__init__(args, loss_fun, optimizer, out, num_classes)
 
         self.args = args
         self.lr = args.lr

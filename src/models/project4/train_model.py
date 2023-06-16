@@ -11,7 +11,7 @@ from src.utils import set_seed, get_optimizer
 from src.models.project4.models import get_model
 from src.models.project4.losses import get_loss
 from src.data.project4.dataloader import get_loaders 
-
+from dummy_args import dummy_args
 
 class BooleanListAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -28,6 +28,8 @@ def parse_arguments():
     # GENERAL ()
     parser.add_argument("--seed", type=int, default=0,
                         help="Pseudo-randomness.")
+    parser.add_argument("--dummy_run", type=bool, default=False,
+                        help="Run on dummy data.")
     parser.add_argument("--dataset", type=str, default='waste',
                         help="Data set either")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
@@ -80,6 +82,10 @@ def parse_arguments():
 
 
 def train(args):
+    # run on dummy data
+    dummy_run = False
+    if dummy_run:
+        args = dummy_args(args)
     # Set random seed
     set_seed(args.seed)
 
@@ -93,16 +99,19 @@ def train(args):
 
 
     # Get data loaders with applied transformations
-    loaders = get_loaders(
+    img_size = (512, 512)
+    loaders, num_classes = get_loaders(
         dataset='waste', 
         batch_size=args.batch_size, 
         seed=args.seed, 
         num_workers=args.num_workers,
-        augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]}
+        augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
+        img_size = img_size,
+        dummy_run=dummy_run,
     )
 
     # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out)
+    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, img_size=img_size)
 
     # Set up logger
     tb_logger = TensorBoardLogger(
