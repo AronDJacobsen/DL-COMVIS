@@ -54,8 +54,8 @@ def parse_arguments():
                         help="Number of initial steps for finding learning rate, -1 to deactivate.")
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
-    parser.add_argument("--loss", type=str, default = 'BCE',
-                        help="Loss function - one of: [BCE]")
+    parser.add_argument("--loss", type=str, default = 'CrossEntropy',
+                        help="Loss function - one of: [CrossEntropy]")
     parser.add_argument("--reg", type=str, default = 'sparsity',
                         help="Regularization - one of: [none, centered, sparsity, tv")
     parser.add_argument("--reg_coef", type=float, default = 0.1,

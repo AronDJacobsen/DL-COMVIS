@@ -164,7 +164,7 @@ class EfficientNet(BaseModel):
             self.freeze_parameters(args.percentage_to_freeze)
 
         # Define metrics and loss criterion
-        self.criterion = nn.CrossEntropyLoss()
+        self.loss_fun = loss_fun
         self.accuracy = Accuracy(task="multiclass", num_classes=self.num_classes).to(self.device)
 
         # Set up logging option
@@ -212,12 +212,12 @@ class EfficientNet(BaseModel):
     def training_step(self, batch, batch_idx):
         # Extract and process input
         x, y = batch
-        y = torch.nn.functional.one_hot(y, num_classes=2) 
+        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes).squeeze(1)
         y = y.to(torch.float32)
 
         # Get prediction, loss and accuracy
         y_hat = self(x)
-        loss = self.criterion(y_hat, y)
+        loss = self.loss_fun(y_hat, y)
         acc = self.accuracy(y_hat, y)
 
         # logs metrics for each training_step - [default:True],
@@ -229,13 +229,12 @@ class EfficientNet(BaseModel):
     def validation_step(self, batch, batch_idx):
         # Extract and process input
         x, y = batch
-        x, y = x.to(self.device), y.to(self.device)
-        y = torch.nn.functional.one_hot(y, num_classes=2) 
+        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes).squeeze(1)
         y = y.to(torch.float32) 
 
         # Get prediction, loss and accuracy
         y_hat = self(x)
-        loss = self.criterion(y_hat, y)
+        loss = self.loss_fun(y_hat, y)
         acc = self.accuracy(y_hat, y)
 
         # logs metrics for each validation_step - [default:False]
