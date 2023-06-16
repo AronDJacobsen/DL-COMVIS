@@ -4,6 +4,10 @@ import numpy as np
 import torch.optim as optim
 from torchvision import transforms
 
+import selectivesearch
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
 
 def set_seed(SEED):
     np.random.seed(SEED)
@@ -74,3 +78,27 @@ def non_maximum_suppression(y, y_hat, iou_threshold=0.5):
     iou_matrix = IoU(y, y_hat)
     iou_matrix[iou_matrix < iou_threshold] = 0
     return iou_matrix
+
+def selective_search(transformed_img, scale=500, sigma=0.9, min_size=10):
+
+    _, regions = selectivesearch.selective_search(transformed_img.permute(1,2,0), scale=scale, sigma=sigma, min_size=min_size)
+
+    return set([bb['rect'] for bb in regions])
+    
+def plot_SS(transformed_img, bboxes):
+    # Albumentations
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    ax.imshow(transforms.ToPILImage()(transformed_img))
+    for x,y,w,h in bboxes:
+        bbox = mpatches.Rectangle(
+            (x, y), w, h, fill=False, edgecolor='red', linewidth=1)
+        ax.add_patch(bbox)
+
+    plt.axis('off')
+    plt.show()
+    plt.close()
+
+
+a = 2
+b = 2 + a
