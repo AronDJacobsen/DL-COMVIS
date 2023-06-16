@@ -53,3 +53,14 @@ def dice_score(y, y_hat):
     """dice coefficient of segmentation wrt. ground truth mask"""
     return 2 * (y_hat & y).sum().item() / ((y_hat.sum().item() + y.sum().item()) + epsilon)
 
+def IoU(y, y_hat):
+    """IoU for objection detection, expects bounding boxes
+    [x, y, w, h]
+    """
+    x1 = torch.max(y_hat[:, 0], y[:, 0])
+    y1 = torch.max(y_hat[:, 1], y[:, 1])
+    x2 = torch.min(y_hat[:, 0] + y_hat[:, 2], y[:, 0] + y[:, 2])
+    y2 = torch.min(y_hat[:, 1] + y_hat[:, 3], y[:, 1] + y[:, 3])
+    intersection = torch.clamp((x2 - x1), min=0) * torch.clamp((y2 - y1), min=0)
+    union = y_hat[:, 2] * y_hat[:, 3] + y[:, 2] * y[:, 3] - intersection
+    return intersection / (union + epsilon)
