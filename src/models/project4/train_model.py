@@ -28,6 +28,8 @@ def parse_arguments():
     # GENERAL ()
     parser.add_argument("--seed", type=int, default=0,
                         help="Pseudo-randomness.")
+    parser.add_argument("--dataset", type=str, default='waste',
+                        help="Data set either")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
@@ -36,7 +38,7 @@ def parse_arguments():
                         help="Path determining where to store results.")
     parser.add_argument("--verbose", type=bool, default=False,
                         help="Determines console logging.")
-    parser.add_argument("--devices", type=int, default=2, 
+    parser.add_argument("--devices", type=int, default=1, 
                         help="Number of devices"),
     
     parser.add_argument("--out", type=bool, default=False,
@@ -61,8 +63,6 @@ def parse_arguments():
                         help="The optimizer to be used.")
     parser.add_argument("--loss", type=str, default = 'BCE',
                         help="Loss function - one of: [BCE]")
-    parser.add_argument("--reg_coef", type=float, default = 0.1,
-                        help="Regularization coefficient")
     parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, 
                         help='List of booleans, i.e. [flip, rotation]')
     
@@ -73,8 +73,8 @@ def parse_arguments():
     # MODEL BASED
     parser.add_argument("--model_name", type=str, default='efficientnet_b4',
                         help="Model name - either 'efficientnet_b4' or ...")
-    #parser.add_argument("--norm", type=str, default = 'none',
-    #                    help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
+    parser.add_argument("--percentage_to_freeze", type=float, default=None,
+                        help="Percentage to freeze (transfer learning) in [0, 1]")
 
     return parser.parse_args()
 
@@ -84,7 +84,7 @@ def train(args):
     set_seed(args.seed)
 
     # Get functions
-    loss_fun = get_loss(args.loss, args.reg, args.reg_coef)
+    loss_fun = get_loss(args.loss)
     optimizer = get_optimizer(args.optimizer)
 
     # Get normalization constants

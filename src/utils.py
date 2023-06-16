@@ -64,3 +64,13 @@ def IoU(y, y_hat):
     intersection = torch.clamp((x2 - x1), min=0) * torch.clamp((y2 - y1), min=0)
     union = y_hat[:, 2] * y_hat[:, 3] + y[:, 2] * y[:, 3] - intersection
     return intersection / (union + epsilon)
+
+def mAP(y, y_hat):
+    """mean average precision for object detection"""
+    return IoU(y, y_hat).mean().item()
+
+def non_maximum_suppression(y, y_hat, iou_threshold=0.5):
+    """non maximum suppression for object detection"""
+    iou_matrix = IoU(y, y_hat)
+    iou_matrix[iou_matrix < iou_threshold] = 0
+    return iou_matrix

@@ -1,19 +1,11 @@
 import argparse
-import matplotlib.pyplot as plt
 
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
-
-import sys
-import json
-import os
-#sys.path.append('../../')
 
 from src.utils import set_seed, get_optimizer
-from src.models.project2.models import get_model
-from src.models.project2.losses import get_loss
-from src.data.project2.dataloader import get_loaders#, get_normalization_constants
-
+from src.models.project4.models import get_model
+from src.models.project4.losses import get_loss
+from src.data.project4.dataloader import get_loaders
 
 class BooleanListAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -21,18 +13,15 @@ class BooleanListAction(argparse.Action):
         bool_values = [bool(int(v)) for v in values]
         setattr(namespace, self.dest, bool_values)    
 
-# CUDA_VISIBLE_DEVICES=1 python src/models/project2/predict_model.py --dataset DRIVE_TEST --model_name UNet  --log_path /work3/$USER/02514/DL-COMVIS/logs/project2/DRIVE --save_path /work3/$USER/02514/DL-COMVIS/models/project2/DRIVE  --batch_size 6 --lr 0.001 --initial_lr_steps -1 --optimizer Adam --epochs 1 --num_workers 24 --devices -1 --experiment_name DRIVE_TEST --augmentation 1 1 --loss BCE  --model UNet --reg none --reg_coef 0 --path_model /work3/s184984/02514/DL-COMVIS/model/project2/DRIVE_UNet_lr=0.001_BCE_AUG/UNet_fold4.ckpt --out 1
-
 def parse_arguments():
-
     
     parser = argparse.ArgumentParser()
 
     # GENERAL ()
     parser.add_argument("--seed", type=int, default=0,
                         help="Pseudo-randomness.")
-    parser.add_argument("--dataset", type=str, default='PH2',
-                        help="Data set either (PH2 or DRIVE, or DRIVE_TEST).")
+    parser.add_argument("--dataset", type=str, default='waste',
+                        help="Data set either")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
@@ -41,7 +30,7 @@ def parse_arguments():
                         help="Path determining where to store results.")
     parser.add_argument("--verbose", type=bool, default=False,
                         help="Determines console logging.")
-    parser.add_argument("--devices", type=int, default=2, 
+    parser.add_argument("--devices", type=int, default=1, 
                         help="Number of devices"),
     
     parser.add_argument("--out", type=bool, default=False,
@@ -66,7 +55,7 @@ def parse_arguments():
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
     parser.add_argument("--loss", type=str, default = 'BCE',
-                        help="Loss function - one of: [BSE, FOCAL, DICE]")
+                        help="Loss function - one of: [BCE]")
     parser.add_argument("--reg", type=str, default = 'sparsity',
                         help="Regularization - one of: [none, centered, sparsity, tv")
     parser.add_argument("--reg_coef", type=float, default = 0.1,
@@ -79,21 +68,21 @@ def parse_arguments():
                         help="Sets the overall experiment name.")
     
     # MODEL BASED
-    parser.add_argument("--model_name", type=str, default='SegCNN',
-                        help="Model name - either 'SegCNN' or ...")
-    #parser.add_argument("--norm", type=str, default = 'none',
-    #                    help="Batch normalization - one of: [none, batchnorm, layernorm, instancenorm]")
+    parser.add_argument("--model_name", type=str, default='efficientnet_b4',
+                        help="Model name - either 'efficientnet_b4' or ...")
+
+    parser.add_argument("--percentage_to_freeze", type=float, default=None,
+                    help="Percentage to freeze (transfer learning) in [0, 1]")
 
     return parser.parse_args()
     
-
 
 def test(args):
     # Set random seed
     set_seed(args.seed)
 
     # Get functions
-    loss_fun = get_loss(args.loss, args.reg, args.reg_coef)
+    loss_fun = get_loss(args.loss)
     optimizer = get_optimizer(args.optimizer)
 
     # Get data loaders with applied transformations
@@ -106,11 +95,7 @@ def test(args):
     )
 
     # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer, 0, out=args.out)
-
-    model = model.load_from_checkpoint(args.path_model)
-    model.eval()
-    model.out = args.out
+    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out)
 
     # Set up logger
     tb_logger = None
@@ -124,9 +109,8 @@ def test(args):
         callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
         logger=tb_logger,
     )
-    print(model.out)
     
-    trainer.predict(model, dataloaders=loaders['test'] if args.dataset == 'PH2' else loaders['test'], ckpt_path = args.path_model)
+    trainer.predict(model, dataloaders=loaders['test'], ckpt_path=args.path_model)
 
 
 if __name__ == '__main__':
@@ -134,6 +118,6 @@ if __name__ == '__main__':
     # Get input arguments
     args = parse_arguments()
     
-    # Train model
+    # test model
     test(args)
 
