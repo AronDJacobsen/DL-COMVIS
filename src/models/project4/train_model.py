@@ -30,6 +30,8 @@ def parse_arguments():
                         help="Pseudo-randomness.")
     parser.add_argument("--dataset", type=str, default='waste',
                         help="Data set either")
+    parser.add_argument("--use_super_categories", type=bool, default=False,
+                        help="Whether to use 60 categories or 28 less fine-grained super categories")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
@@ -45,6 +47,8 @@ def parse_arguments():
                         help="output individual predicted images")
                         
     # TRAINING PARAMETERS
+    parser.add_argument("--region_size", type=int, default=224,
+                        help="Size of bbox images for training.")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="Batch size.")
     parser.add_argument("--num_workers", type=int, default=1,
@@ -93,20 +97,19 @@ def train(args):
 
 
     # Get data loaders with applied transformations
-    img_size = (512, 512)
-    region_size = (224, 224)
     loaders, num_classes = get_loaders(
         dataset='waste', 
         batch_size=args.batch_size, 
         seed=args.seed, 
         num_workers=args.num_workers,
+        img_size = (512, 512),
+        region_size = (args.region_size, args.region_size),
+        use_super_categories=args.use_super_categories,
         #augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
-        img_size = img_size,
-        region_size = region_size,
     )
 
     # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=region_size)
+    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size))
 
     # Set up logger
     tb_logger = TensorBoardLogger(
