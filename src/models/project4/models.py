@@ -7,16 +7,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import timm
 from torchmetrics.classification import Accuracy
+from torchvision.ops import box_iou
 
 
 from src.utils import accuracy, IoU
 
 
-def get_model(model_name, args, loss_fun, optimizer, out=False, img_size=(512,512)):
+def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512)):
     if model_name == 'testnet':
-        return TestNet(args, loss_fun, optimizer, out=out, img_size=img_size)
+        return TestNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size)
     elif model_name == 'efficientnet_b4':
-        return EfficientNet(args, loss_fun, optimizer, out=out, img_size=img_size)
+        return EfficientNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size)
     else:
         raise ValueError('unknown model name')
 
@@ -36,14 +37,14 @@ class BaseModel(pl.LightningModule):
         self.out = out
         self.offset = 0
         self.num_classes = num_classes
-
+        self.iou_threshold = .5 # TODO: appropriate???
         # what to log in training and validation
         self.logs = {
-            'acc': accuracy,
+        #    'acc': accuracy,
             }
         # what to calculate when predicting
         self.metrics = {
-            'IoU'         : IoU,
+        #    'IoU'         : IoU,
             }
         self.log_dict = {}
 
@@ -60,11 +61,63 @@ class BaseModel(pl.LightningModule):
     def configure_optimizers(self):
         return self.optimizer(self.parameters(), lr = self.args.lr)
         
+    # TODO: make a general step, for e.g. the first part of all setps
+    def general_step(self, batch, batch_idx):
+        y_hat = 0
+        loss = 0
+        return y_hat, loss
+    
+    def compare_boxes(self, bboxes, pred_bboxes):
+        # initializing
+        num_gt_boxes, num_pred_boxes = bboxes.shape[0], pred_bboxes.shape[0]
+        gt_matches = torch.zeros(num_gt_boxes, dtype=torch.bool)
+        pred_matches = torch.zeros(num_pred_boxes, dtype=torch.bool)
+        # no match is marked -1
+        pred_boxes = -torch.ones(num_pred_boxes, dtype=torch.long)
+        # for each predicted box
+        iou = box_iou(bboxes, pred_bboxes)
+        for pred_idx in range(num_pred_boxes):
+            # rows are true, columns are how they compare to each estimates
+            iou_score = iou[pred_idx] # get row
+            # check if there are any matching
+            max_iou = torch.max(iou_score)
+            if max_iou < self.iou_threshold:
+                break
+            # get
+            gt_idx = torch.argmax(iou_score)
+            # for mAP?
+            gt_matches[gt_idx] = True
+            pred_matches[pred_idx] = True
+            # for finding the box
+            pred_boxes[pred_idx] = int(gt_idx)
+
+
+        return pred_matches, gt_matches, pred_boxes
+
+
+
     def training_step(self, batch, batch_idx):
+        
         # extract input
-        x, y = batch
-        # predict
-        y_hat = self.forward(x)
+        loss = 0
+        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
+        y = y.to(torch.float32)
+        # for each image
+        for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
+            # for each bounding box
+            (bboxes, regions) = bboxes_data
+            (pred_bboxes, pred_regions) = pred_bboxes_data
+            # bbox class prediction
+            y_hat = self.forward(pred_regions)
+            # find corresponding gt box
+            pred_matches, gt_matches, pred_boxes = self.compare_boxes(bboxes, pred_bboxes)
+            # gather data
+            mask = pred_boxes >= 0 # masking the bboxes similar to gt
+            bbox_class_pred = y_hat[mask].to(torch.float) # predicted logits
+            cat_pred = torch.take(cat_id, pred_boxes[mask]) # corresponding categories
+            one_hot_cat_pred = torch.nn.functional.one_hot(cat_pred, num_classes=self.num_classes).to(torch.float)
+            loss += self.loss_fun(bbox_class_pred, one_hot_cat_pred)
+        
         y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
         y = y.to(torch.float32)
 
@@ -78,14 +131,24 @@ class BaseModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # extract input
-        x, y = batch
-        # predict
-        y_hat = self.forward(x)
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
-        y = y.to(torch.float32)
-
-        # Get prediction, loss and accuracy
-        loss = self.loss_fun(y_hat, y)
+        loss = 0
+        # for each image
+        for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
+            # for each bounding box
+            (bboxes, regions) = bboxes_data
+            (pred_bboxes, pred_regions) = pred_bboxes_data
+            # bbox class prediction
+            y_hat = self.forward(pred_regions)
+            # find corresponding gt box
+            pred_matches, gt_matches, pred_boxes = self.compare_boxes(bboxes, pred_bboxes)
+            # gather data
+            mask = pred_boxes >= 0 # masking the bboxes similar to gt
+            bbox_class_pred = y_hat[mask].to(torch.float) # predicted logits
+            cat_pred = torch.take(cat_id, pred_boxes[mask]) # corresponding categories
+            one_hot_cat_pred = torch.nn.functional.one_hot(cat_pred, num_classes=self.num_classes).to(torch.float)
+            loss += self.loss_fun(bbox_class_pred, one_hot_cat_pred)
+        
+        # TODO:
         # log
         for name, fun in self.logs.items():
             self.log('val_'+name, fun(y_hat, y), prog_bar=True, logger=True)
@@ -94,11 +157,29 @@ class BaseModel(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx): 
+        
         # extract input
-        x, y = batch
-        # predict
-        y_hat = self.forward(x)
-        # loss
+        loss = 0
+        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
+        y = y.to(torch.float32)
+        # for each image
+        for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
+            # for each bounding box
+            (bboxes, regions) = bboxes_data
+            (pred_bboxes, pred_regions) = pred_bboxes_data
+            # bbox class prediction
+            y_hat = self.forward(pred_regions)
+            # find corresponding gt box
+            pred_matches, gt_matches, pred_boxes = self.compare_boxes(bboxes, pred_bboxes)
+            # gather data
+            mask = pred_boxes >= 0 # masking the bboxes similar to gt
+            bbox_class_pred = y_hat[mask].to(torch.float) # predicted logits
+            cat_pred = torch.take(cat_id, pred_boxes[mask]) # corresponding categories
+            one_hot_cat_pred = torch.nn.functional.one_hot(cat_pred, num_classes=self.num_classes).to(torch.float)
+            loss += self.loss_fun(bbox_class_pred, one_hot_cat_pred)
+        
+
+
         y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
         y = y.to(torch.float32)
         loss = self.loss_fun(y, y_hat)
@@ -153,13 +234,14 @@ class BaseModel(pl.LightningModule):
 
 
 class TestNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out, num_classes, img_size):
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
         super().__init__(args, loss_fun, optimizer, out, num_classes)
-        h, w = img_size
+        h, w = region_size
         self.fc1 = nn.Linear(h*w*3, 128)  # 5*5 from image dimension
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, num_classes)
         self.relu = nn.ReLU()
+        #self.softmax = nn.Softmax()
 
 
     def forward(self, x):
@@ -169,11 +251,16 @@ class TestNet(BaseModel):
         x = self.fc2(x)
         x = self.relu(x)
         x = self.fc3(x)
+        #x = self.softmax(x)
         return x
 
 
+
+### OLD ### have to adjust and remove the train test val steps as they are in the base model
+
+
 class EfficientNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out, num_classes, img_size):
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
         super().__init__(args, loss_fun, optimizer, out, num_classes)
 
         self.args = args

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-
+import torch
 import json
 import os
 
@@ -28,8 +28,6 @@ def parse_arguments():
     # GENERAL ()
     parser.add_argument("--seed", type=int, default=0,
                         help="Pseudo-randomness.")
-    parser.add_argument("--dummy_run", type=bool, default=False,
-                        help="Run on dummy data.")
     parser.add_argument("--dataset", type=str, default='waste',
                         help="Data set either")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
@@ -47,7 +45,7 @@ def parse_arguments():
                         help="output individual predicted images")
                         
     # TRAINING PARAMETERS
-    parser.add_argument("--batch_size", type=int, default=64,
+    parser.add_argument("--batch_size", type=int, default=32,
                         help="Batch size.")
     parser.add_argument("--num_workers", type=int, default=1,
                         help="Number of workers in the dataloader.")
@@ -63,8 +61,8 @@ def parse_arguments():
                         help="Number of initial steps for finding learning rate, -1 to deactivate.")
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
-    parser.add_argument("--loss", type=str, default = 'CrossEntropy',
-                        help="Loss function - one of: [CrossEntropy]")
+    parser.add_argument("--loss", type=str, default = 'BCE',
+                        help="Loss function - one of: [CrossEntropy,BCE]")
     parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, 
                         help='List of booleans, i.e. [flip, rotation]')
     
@@ -73,7 +71,7 @@ def parse_arguments():
                         help="Sets the overall experiment name.")
     
     # MODEL BASED
-    parser.add_argument("--model_name", type=str, default='efficientnet_b4',
+    parser.add_argument("--model_name", type=str, default='testnet',
                         help="Model name - either 'efficientnet_b4' or ...")
     parser.add_argument("--percentage_to_freeze", type=float, default=None,
                         help="Percentage to freeze (transfer learning) in [0, 1]")
@@ -82,10 +80,6 @@ def parse_arguments():
 
 
 def train(args):
-    # run on dummy data
-    dummy_run = False
-    if dummy_run:
-        args = dummy_args(args)
     # Set random seed
     set_seed(args.seed)
 
@@ -100,18 +94,19 @@ def train(args):
 
     # Get data loaders with applied transformations
     img_size = (512, 512)
+    region_size = (224, 224)
     loaders, num_classes = get_loaders(
         dataset='waste', 
         batch_size=args.batch_size, 
         seed=args.seed, 
         num_workers=args.num_workers,
-        augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
+        #augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
         img_size = img_size,
-        dummy_run=dummy_run,
+        region_size = region_size,
     )
 
     # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, img_size=img_size)
+    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=region_size)
 
     # Set up logger
     tb_logger = TensorBoardLogger(
@@ -120,16 +115,18 @@ def train(args):
         name=args.model_name,
     )
 
+    acc = "gpu" if torch.cuda.is_available() else "cpu"
+    if acc != 'gpu':
+        print('##### RUNNING ON CPU ####')
     # Setup trainer
     trainer = pl.Trainer(
         devices=args.devices, 
-        accelerator='gpu', 
+        accelerator=acc, 
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
         callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
         logger=tb_logger,
     )
-            
     
     # Train model
     trainer.fit(
