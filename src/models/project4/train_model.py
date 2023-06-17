@@ -30,7 +30,7 @@ def parse_arguments():
                         help="Pseudo-randomness.")
     parser.add_argument("--dataset", type=str, default='waste',
                         help="Data set either")
-    parser.add_argument("--use_super_categories", type=bool, default=False,
+    parser.add_argument("--use_super_categories", type=bool, default=True,
                         help="Whether to use 60 categories or 28 less fine-grained super categories")
     parser.add_argument("--log_path", type=str, default = 'lightning_logs',
                         help="Path determining where to store logs.")

@@ -93,21 +93,6 @@ class WasteDataset(Dataset):
         # Load proposed bounding boxes
         with open('/work3/s184984/02514/project4/bboxes/bboxes_no_zeros.pkl', 'rb') as fp:
             proposed_bboxes = pickle.load(fp)
-        
-        # temp_boxes = {key: {bbox_ for bbox_ in list(values) if bbox_[2] != 0 and bbox_[3] != 0} for key, values in proposed_bboxes.items()}
-        # with open('/work3/s184984/02514/project4/bboxes/bboxes_no_zeros.pkl', 'wb') as fp:
-        #     pickle.dump(temp_boxes, fp)
-        #     print("Your dictionary has been saved successfully to file")
-
-        # sum_ = 0
-        # proposed_bboxes = temp_boxes
-        # for i, img_name in enumerate(proposed_bboxes):
-        #     zeros = {bbox_ for bbox_ in list(proposed_bboxes[img_name]) if bbox_[2] == 0 or bbox_[3] == 0}.__len__()
-        #     if zeros > 0:
-        #         print(img_name)
-        #     sum_ += zeros
-
-        # print(sum_)
 
         # Restrict to train, test or validation set
         selected_images         = [img_path[1] for img_path in self.image_paths]
@@ -126,12 +111,6 @@ class WasteDataset(Dataset):
         if box_type == 'gt':
             return torch.tensor([x, y, x+w, y+h]), self.region_transform(image = image[y:y+h, x:x+w, :])['image']
         elif box_type == 'predicted':
-            # if w == 0:
-            #     print("w - Line detected!!!")
-            #     w += 1
-            # elif h == 0:
-            #     print("h - Line detected!!!")
-            #     h += 1
             return torch.tensor([x, y, x+w, y+h]), self.transform_pred_bbox(image = image[y:y+h, x:x+w, :])['image']
 
     def process_image(self, image):
@@ -188,47 +167,6 @@ class WasteDataset(Dataset):
         bboxes, extracted_bboxes = zip(*(self.extract_resize_region(modified_image, bbox, box_type='gt') for bbox in transformed_bboxes))        
         pred_bboxes, extracted_pred_bboxes = zip(*(self.extract_resize_region(modified_image, bbox, box_type='predicted') for bbox in pred_bboxes))
              
-
-        import matplotlib.pyplot as plt
-        import matplotlib.patches as patches
-      
-        fig, ax = plt.subplots(2, 2, figsize=(12, 12)) 
-        ax[0, 0].imshow(modified_image)
-        ax[0, 0].set_title("Original image")
-
-        ax[0, 1].imshow(extracted_bboxes[0].permute(1,2,0))
-        ax[0, 1].set_title(f"{self.id2cat[category_ids[0][0]]}")
-
-        ax[1, 0].imshow(extracted_pred_bboxes[0].permute(1,2,0))
-        ax[1, 0].set_title("One proposed bbox")
-
-        ax[1, 1].imshow(modified_image)
-        for bbox in pred_bboxes[:100]:
-            rect = patches.Rectangle(
-                (bbox[0].item(), bbox[1].item()), 
-                width=(bbox[2] - bbox[0]).item(), 
-                height=(bbox[3] - bbox[1]).item(), 
-                linewidth=2, 
-                edgecolor='b', 
-                facecolor='none'
-            )
-            ax[1, 1].add_patch(rect)
-
-        for bbox in bboxes:
-            rect = patches.Rectangle(
-                (bbox[0].item(), bbox[1].item()), 
-                width=(bbox[2] - bbox[0]).item(), 
-                height=(bbox[3] - bbox[1]).item(), 
-                linewidth=3, 
-                edgecolor='r', 
-                facecolor='none'
-            )
-            ax[1, 1].add_patch(rect)
-        ax[1, 1].set_title("GT and randomly sampled proposed bboxes")
-
-        plt.tight_layout()
-        fig.savefig(f"/work3/s194253/02514/test_{idx}_super={self.use_super_categories}.png")
-
         return (image, torch.tensor(category_ids), (torch.stack(bboxes), torch.stack(extracted_bboxes)), (torch.stack(pred_bboxes), torch.stack(extracted_pred_bboxes)))
 
 
