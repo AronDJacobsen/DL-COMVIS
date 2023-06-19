@@ -129,7 +129,7 @@ class BaseModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss, acc,IoU, mAP = 0, 0, 0
+        loss, acc, IoU, mAP = 0, 0, 0, 0
         y_hat = []
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
@@ -151,7 +151,7 @@ class BaseModel(pl.LightningModule):
             # update mAP class
             self.mAP.update(preds, targets)
             # calculate
-            map += self.mAP.compute()['map_50']
+            mAP += self.mAP.compute()['map_50']
 
     
         # Normalize
@@ -215,10 +215,6 @@ class TestNet(BaseModel):
         return x
 
 
-
-### OLD ### have to adjust and remove the train test val steps as they are in the base model
-
-
 class EfficientNet(BaseModel):
     def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
         super().__init__(args, loss_fun, optimizer, out, num_classes)
@@ -257,38 +253,3 @@ class EfficientNet(BaseModel):
 
     def forward(self, x):
         return self.network(x)
-
-    """
-    def training_step(self, batch, batch_idx):
-        # Extract and process input
-        x, y = batch
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes).squeeze(1)
-        y = y.to(torch.float32)
-
-        # Get prediction, loss and accuracy
-        y_hat = self(x)
-        loss = self.loss_fun(y_hat, y)
-        acc = self.accuracy(y_hat, y)
-
-        # logs metrics for each training_step - [default:True],
-        # the average across the epoch, to the progress bar and logger-[default:False]
-        self.log("train_acc", acc, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True),
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        # Extract and process input
-        x, y = batch
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes).squeeze(1)
-        y = y.to(torch.float32) 
-
-        # Get prediction, loss and accuracy
-        y_hat = self(x)
-        loss = self.loss_fun(y_hat, y)
-        acc = self.accuracy(y_hat, y)
-
-        # logs metrics for each validation_step - [default:False]
-        #the average across the epoch - [default:True]
-        self.log("val_acc", acc, prog_bar=True, logger=True),
-        self.log("val_loss", loss, prog_bar=True, logger=True)
-    """
