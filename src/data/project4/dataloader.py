@@ -163,24 +163,14 @@ class WasteDataset(Dataset):
         # Extract proposed bounding boxes
         pred_bboxes = torch.tensor(self.proposed_bboxes[img_path])
         
-        def clamp(bbox):
-            if bbox[0] < 0.0:
-                bbox[0] = 0.0                       # clamp x-coordinate
-                bbox[2] = bbox[2] - abs(bbox[0])    # adjust width
-
-            if bbox[1] < 0.0:
-                bbox[1] = 0.0                       # clamp y-coordinate
-                bbox[3] = bbox[3] - abs(bbox[1])    # adjust height
-            return bbox
-
         # Transform image
-        try:
-            transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
-        except:
-            corrupted = np.where(np.any(np.array(bboxes)<0, axis=1))
-            # TODO: remove the bounding box from bbox and category idx, problem, are tuples..
-            transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
-            print('#### FAILED BOUNDING BOX ####')
+        # try:
+        transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
+        # except:
+        #     corrupted = np.where(np.any(np.array(bboxes)<0, axis=1))
+        #     # TODO: remove the bounding box from bbox and category idx, problem, are tuples..
+        #     transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
+        #     print('#### FAILED BOUNDING BOX ####')
 
         image = transformed['image']
         

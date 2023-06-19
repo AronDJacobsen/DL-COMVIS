@@ -8,15 +8,9 @@ import numpy as np
 import timm
 from torchmetrics.classification import Accuracy
 from torchvision.ops import box_iou
-<<<<<<< HEAD
 from collections import Counter
 
-from src.utils import accuracy, IoU
-
-=======
-
 from src.utils import accuracy, IoU, plot_SS
->>>>>>> 0216d7151697bacb38e948d7fb12b21b65878f55
 
 def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512)):
     if model_name == 'testnet':
@@ -85,52 +79,54 @@ class BaseModel(pl.LightningModule):
         return pred_matches, gt_matches, pred_boxes
 
     def training_step(self, batch, batch_idx):
-    
-        # extract input
-        loss, acc = 0, 0
+        if batch_idx != 196:
+            pass
+        else:
+            # extract input
+            loss, acc = 0, 0
 
-        # for each image
-        for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
-            # for each bounding box
-            (bboxes, regions)           = bboxes_data
-            (pred_bboxes, pred_regions) = pred_bboxes_data
+            # for each image
+            for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
+                # for each bounding box
+                (bboxes, regions)           = bboxes_data
+                (pred_bboxes, pred_regions) = pred_bboxes_data
 
-            # find corresponding gt box
-            pred_matches, gt_matches, pred_labels = self.compare_boxes(bboxes, cat_ids, pred_bboxes, self.num_classes)
-            
-            # Downsample background to 25% non-background vs 75% background
-            non_background      = pred_labels != (self.num_classes - 1) 
-            n_non_background    = non_background.sum().item()
-            n_background_sample = (n_non_background + len(regions)) * 3
-            # Get subset background idxs
-            background_idxs     = np.random.permutation(np.arange(len(pred_labels))[pred_labels == (self.num_classes - 1)])[:n_background_sample]
+                # find corresponding gt box
+                pred_matches, gt_matches, pred_labels = self.compare_boxes(bboxes, cat_ids, pred_bboxes, self.num_classes)
+                
+                # Downsample background to 25% non-background vs 75% background
+                non_background      = pred_labels != (self.num_classes - 1) 
+                n_non_background    = non_background.sum().item()
+                n_background_sample = (n_non_background + len(regions)) * 3
+                # Get subset background idxs
+                background_idxs     = np.random.permutation(np.arange(len(pred_labels))[pred_labels == (self.num_classes - 1)])[:n_background_sample]
 
-            # Filter data to subset
-            pred_bboxes         = torch.concat([pred_bboxes[non_background], pred_bboxes[background_idxs]])
-            pred_labels         = torch.concat([pred_labels[non_background], pred_labels[background_idxs]])
-            pred_regions        = torch.concat([pred_regions[non_background], pred_regions[background_idxs]])
-            
-            all_regions         = torch.concat([pred_regions, regions])            
-            all_labels          = torch.concat([pred_labels.to(self.device), cat_ids.flatten().to(self.device)])
+                # Filter data to subset
+                pred_bboxes         = torch.concat([pred_bboxes[non_background], pred_bboxes[background_idxs]])
+                pred_labels         = torch.concat([pred_labels[non_background], pred_labels[background_idxs]])
+                pred_regions        = torch.concat([pred_regions[non_background], pred_regions[background_idxs]])
+                
+                all_regions         = torch.concat([pred_regions, regions])            
+                all_labels          = torch.concat([pred_labels.to(self.device), cat_ids.flatten().to(self.device)])
 
-            # Classify proposed regions
-            y_hat = self.forward(all_regions)
+                # Classify proposed regions
+                y_hat = self.forward(all_regions)
 
-            # Encode data and compute loss
-            one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
-            loss                += self.loss_fun(y_hat, one_hot_cat_pred)
-            acc                 += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
+                # Encode data and compute loss
+                one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
+                loss                += self.loss_fun(y_hat, one_hot_cat_pred)
+                acc                 += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
 
-        loss /= len(batch)
-        acc /= len(batch)
+            loss /= len(batch)
+            acc /= len(batch)
 
-        # Log performance
-        self.log('loss/train_step',  loss, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('loss/train_epoch', loss, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # Log performance
+            self.log('loss/train_step',  loss, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('loss/train_epoch', loss, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        return loss
+            return loss
     
     def validation_step(self, batch, batch_idx):
         # extract input
