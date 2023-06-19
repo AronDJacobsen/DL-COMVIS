@@ -68,6 +68,18 @@ class WasteDataset(Dataset):
             img_data['file_name']) 
         for img_data in dataset['images']]
         
+        # Exclude images with bounding boxes exceeding image
+        exclude_images = [
+            'batch_10/000008.jpg',
+            'batch_10/000011.jpg',
+            'batch_11/000008.jpg',
+            'batch_11/000077.jpg',
+            'batch_13/000056.jpg',
+            'batch_14/000048.jpg',
+            'batch_15/000078.jpg',
+        ]
+        self.image_paths = [img_path_data for img_path_data in self.image_paths if img_path_data[1] not in exclude_images]
+
         # shuffle image order 
         random.seed(seed)
         random.shuffle(self.image_paths)
@@ -97,7 +109,7 @@ class WasteDataset(Dataset):
             proposed_bboxes = pickle.load(fp)
 
         # Restrict to train, test or validation set
-        selected_images         = [img_path[1] for img_path in self.image_paths]
+        selected_images         = [img_path[1] for img_path in self.image_paths] 
         self.proposed_bboxes    = {
             img_name: tuple([list(bbox_) for bbox_ in proposed_bboxes_]) 
             for img_name, proposed_bboxes_ in proposed_bboxes.items() 
@@ -152,13 +164,13 @@ class WasteDataset(Dataset):
         pred_bboxes = torch.tensor(self.proposed_bboxes[img_path])
         
         # Transform image
-        try:
-            transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
-        except:
-            corrupted = np.where(np.any(np.array(bboxes)<0, axis=1))
-            # TODO: remove the bounding box from bbox and category idx, problem, are tuples..
-            transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
-            print('#### FAILED BOUNDING BOX ####')
+        # try:
+        transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
+        # except:
+        #     corrupted = np.where(np.any(np.array(bboxes)<0, axis=1))
+        #     # TODO: remove the bounding box from bbox and category idx, problem, are tuples..
+        #     transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
+        #     print('#### FAILED BOUNDING BOX ####')
 
         image = transformed['image']
         

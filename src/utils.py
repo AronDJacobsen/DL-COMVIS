@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import os
 
 import torch.optim as optim
 from torchvision import transforms
@@ -89,20 +90,26 @@ def selective_search(transformed_img, scale=500, sigma=0.9, min_size=10):
 
     return set([bb['rect'] for bb in regions])
     
-def plot_SS(transformed_img, bboxes):
+def plot_SS(transformed_img, bboxes, idx = None, batch_idx = None, path = '/work3/s194253/02514/project4_results/predict_imgs'):
     # Albumentations
     fig, ax = plt.subplots(figsize=(6, 6))
 
+    folder_path = f"{path}/{path.split('/')[-1]}_batchidx{batch_idx}"
+
+    print(transformed_img)
+    print(bboxes)
+
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
     ax.imshow(transforms.ToPILImage()(transformed_img))
-    for x,y,w,h in bboxes:
+    for x1,y1,x2,y2 in bboxes.cpu().numpy():
+        print(x1,y1,x2,y2)
         bbox = mpatches.Rectangle(
-            (x, y), w, h, fill=False, edgecolor='red', linewidth=1)
+            (x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=1)
         ax.add_patch(bbox)
+        break
 
     plt.axis('off')
-    plt.show()
+    plt.savefig(f'{folder_path}/idx{idx}.png')
     plt.close()
-
-
-a = 2
-b = 2 + a
