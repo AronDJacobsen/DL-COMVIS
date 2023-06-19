@@ -49,7 +49,7 @@ def parse_arguments():
     # TRAINING PARAMETERS
     parser.add_argument("--region_size", type=int, default=224,
                         help="Size of bbox images for training.")
-    parser.add_argument("--batch_size", type=int, default=32,
+    parser.add_argument("--batch_size", type=int, default=1,
                         help="Batch size.")
     parser.add_argument("--num_workers", type=int, default=1,
                         help="Number of workers in the dataloader.")
@@ -71,7 +71,7 @@ def parse_arguments():
                         help='List of booleans, i.e. [flip, rotation]')
     
     # EXPERIMENT NAMING
-    parser.add_argument("--experiment_name", type=str, default='test123',
+    parser.add_argument("--experiment_name", type=str, default='test',
                         help="Sets the overall experiment name.")
     
     # MODEL BASED

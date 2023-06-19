@@ -104,23 +104,33 @@ class BaseModel(pl.LightningModule):
             pred_labels         = torch.concat([pred_labels[non_background], pred_labels[background_idxs]])
             pred_regions        = torch.concat([pred_regions[non_background], pred_regions[background_idxs]])
             
-            all_regions         = torch.concat([pred_regions, regions])
-            all_labels          = torch.concat([pred_labels, cat_id.flatten()])
+            all_regions         = torch.concat([pred_regions, regions])            
+            all_labels          = torch.concat([pred_labels.to(self.device), cat_id.flatten().to(self.device)])
 
             # Classify proposed regions
             y_hat = self.forward(all_regions)
 
             # Encode data and compute loss
+            print(all_labels.detach().cpu())
+            print(y_hat.detach().cpu().argmax(dim=1))
+            
             one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
+            print("HERE")
             loss                += self.loss_fun(y_hat, one_hot_cat_pred)
-            acc                 += (y_hat.argmax(dim=1) == all_labels).to(torch.float).mean().item()
+
+            # acc                 += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
 
         loss /= len(batch)
+        acc /= len(batch)
 
         # Log performance
-        self.log('loss/train', loss, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('acc/train', acc, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('loss/train_step',  loss, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('loss/train_epoch', loss, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
+        return loss
+    
     def validation_step(self, batch, batch_idx):
         # extract input
         loss, acc = 0, 0
