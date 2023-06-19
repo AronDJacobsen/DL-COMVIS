@@ -74,6 +74,24 @@ def IoU(y, y_hat):
     return intersection / union if not np.allclose(union, 0) else 0.0
 
 
+
+def Sensitivity(y, y_hat):
+    """IoU for objection detection, expects bounding boxes
+    [x1, y1, x2, x2]
+    """
+    # for intersection area
+    x1 = torch.max(y_hat[:, 0], y[:, 0])
+    y1 = torch.max(y_hat[:, 1], y[:, 1])
+    x2 = torch.min(y_hat[:, 2], y[:, 2])
+    y2 = torch.min(y_hat[:, 3], y[:, 3])
+    intersection = torch.clamp((x2 - x1), min=0) * torch.clamp((y2 - y1), min=0)
+    # their sum minus intersection
+    union = y_hat[:, 2] * y_hat[:, 3] + y[:, 2] * y[:, 3] - intersection
+    gt = (y[:, 0]- y[:, 2]) * (y[:, 1]- y[:, 3])
+    return intersection / gt if not np.allclose(gt, 0) else 0.0
+
+
+
 def mAP(preds, targets):
     """mean average precision for object detection"""
     return MeanAveragePrecision()(preds, targets)

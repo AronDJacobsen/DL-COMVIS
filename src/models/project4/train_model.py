@@ -108,11 +108,6 @@ def train(args):
         #augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
     )
 
-    from tqdm import tqdm
-    for i in tqdm(range(loaders['train'].dataset.__len__())):
-        loaders['train'].dataset.__getitem__(i)
-    loaders['train'].dataset.__getitem__(i)
-
     # Load model
     model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size))
 
@@ -133,7 +128,7 @@ def train(args):
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
         callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
-        logger=tb_logger,
+        #logger=tb_logger,
     )
     
     # Train model
