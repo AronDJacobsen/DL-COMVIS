@@ -196,13 +196,11 @@ class BaseModel(pl.LightningModule):
         IoU     /= len(batch)
 
         # Log performance
-        self.log('mAP/val',     mAP,   batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('acc/val',     acc,   batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('IoU/val',     IoU,   batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/val_mean',    np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/val_95lower', np.percentile(recall, q=2.5), batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/val_95upper', np.percentile(recall, q=97.5), batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('learning_rate',      self.lr, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val',         mAP,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/val',         acc,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('IoU/val',         IoU,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/val',      np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('learning_rate',   self.lr, batch_size=len(batch), prog_bar=True, logger=True)
 
 
     def test_step(self, batch, batch_idx):
@@ -264,12 +262,10 @@ class BaseModel(pl.LightningModule):
         IoU     /= len(batch)
 
         # Log performance
-        self.log('mAP/test',            mAP, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('acc/test',            acc, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('IoU/test',            IoU, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/test_mean',    np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/test_95lower', np.percentile(recall, 2.5), batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/test_95upper', np.percentile(recall, 97.5), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/test',    mAP, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/test',    acc, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('IoU/test',    IoU, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/test', np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
 
     def predict_step(self, batch, batch_idx):
 
