@@ -137,6 +137,10 @@ def train(args):
         train_dataloaders = loaders['train'],
         val_dataloaders   = loaders['validation']
     ) 
+    
+    for i in range(loaders['train'].dataset.__len__()):
+        loaders['train'].dataset.__getitem__(i)
+    
 
     # manually you can save best checkpoints - 
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}.ckpt")

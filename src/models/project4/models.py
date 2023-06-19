@@ -8,7 +8,7 @@ import numpy as np
 import timm
 from torchmetrics.classification import Accuracy
 from torchvision.ops import box_iou
-
+from collections import Counter
 
 from src.utils import accuracy, IoU
 
@@ -51,13 +51,13 @@ class BaseModel(pl.LightningModule):
     def configure_optimizers(self):
         return self.optimizer(self.parameters(), lr = self.args.lr)
         
-    def compare_boxes(self, bboxes, pred_bboxes, num_classes):
+    def compare_boxes(self, bboxes, cat_ids, pred_bboxes, num_classes):
         # initializing
         num_gt_boxes, num_pred_boxes    = bboxes.shape[0], pred_bboxes.shape[0]
         gt_matches                      = torch.zeros(num_gt_boxes, dtype=torch.bool)
         pred_matches                    = torch.zeros(num_pred_boxes, dtype=torch.bool)
 
-        # Mark no match as background index (which is "num_classes" as defined in data loader)
+        # Mark no match as background index (which is num_classes - 1 as defined in data loader)
         pred_boxes  = (num_classes - 1) * torch.ones(num_pred_boxes, dtype=torch.long) 
         # Get IoU matrix
         iou         = box_iou(bboxes, pred_bboxes)
@@ -75,22 +75,23 @@ class BaseModel(pl.LightningModule):
                 gt_matches[gt_idx] = True
                 pred_matches[pred_idx] = True
                 # for finding the box later on
-                pred_boxes[pred_idx] = int(gt_idx)
+                pred_boxes[pred_idx] = cat_ids[gt_idx][0]
 
         return pred_matches, gt_matches, pred_boxes
 
     def training_step(self, batch, batch_idx):
+    
         # extract input
         loss, acc = 0, 0
 
         # for each image
-        for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
+        for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
             (bboxes, regions)           = bboxes_data
             (pred_bboxes, pred_regions) = pred_bboxes_data
 
             # find corresponding gt box
-            pred_matches, gt_matches, pred_labels = self.compare_boxes(bboxes, pred_bboxes, self.num_classes)
+            pred_matches, gt_matches, pred_labels = self.compare_boxes(bboxes, cat_ids, pred_bboxes, self.num_classes)
             
             # Downsample background to 25% non-background vs 75% background
             non_background      = pred_labels != (self.num_classes - 1) 
@@ -105,20 +106,15 @@ class BaseModel(pl.LightningModule):
             pred_regions        = torch.concat([pred_regions[non_background], pred_regions[background_idxs]])
             
             all_regions         = torch.concat([pred_regions, regions])            
-            all_labels          = torch.concat([pred_labels.to(self.device), cat_id.flatten().to(self.device)])
+            all_labels          = torch.concat([pred_labels.to(self.device), cat_ids.flatten().to(self.device)])
 
             # Classify proposed regions
             y_hat = self.forward(all_regions)
 
             # Encode data and compute loss
-            print(all_labels.detach().cpu())
-            print(y_hat.detach().cpu().argmax(dim=1))
-            
             one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
-            print("HERE")
             loss                += self.loss_fun(y_hat, one_hot_cat_pred)
-
-            # acc                 += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
+            acc                 += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
 
         loss /= len(batch)
         acc /= len(batch)
