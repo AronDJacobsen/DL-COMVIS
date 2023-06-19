@@ -7,10 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import timm
 from torchmetrics.classification import Accuracy
-from torchvision.ops import box_iou
+from torchvision.ops import box_iou, nms
 
-
-from src.utils import accuracy, IoU
+from src.utils import accuracy, IoU, mAP
 
 
 def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512)):
@@ -38,6 +37,7 @@ class BaseModel(pl.LightningModule):
         self.offset = 0
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
+        
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
@@ -123,8 +123,8 @@ class BaseModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss, acc = 0, 0
-
+        loss, acc, map = 0, 0, 0
+        y_hat = []
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
@@ -133,14 +133,24 @@ class BaseModel(pl.LightningModule):
 
             # Classify proposed regions
             y_hat = self.forward(pred_regions)
+            
+            # maximum probabilities
+            outputs = torch.nn.functional.softmax(y_hat, dim=1)
+            pred_prob, pred_cat = torch.max(outputs, 1)
+            # Applying NMS (remove redundant boxes)
+            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold)
+            # Computing AP
+            preds = [{'boxes': pred_bboxes[keep_indices], 'scores':pred_prob[keep_indices], 'labels':pred_cat[keep_indices]}]
+            targets = [{'boxes':bboxes, 'labels':cat_id.flatten()}]
+            map += mAP(preds, targets)
 
         # Compute performance
+        
         IoU = 1. # TODO: change
-        mAP = 1. # TODO: change
-
+        map /= len(batch)
         # Log performance
         self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val', map, batch_size=len(batch), prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         # extract input

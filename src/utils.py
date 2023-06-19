@@ -7,6 +7,7 @@ from torchvision import transforms
 import selectivesearch
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
 
 def set_seed(SEED):
@@ -72,9 +73,9 @@ def IoU(y, y_hat):
     return intersection / union if not np.allclose(union, 0) else 0.0
 
 
-def mAP(y, y_hat):
+def mAP(preds, targets):
     """mean average precision for object detection"""
-    return IoU(y, y_hat).mean().item()
+    return MeanAveragePrecision()(preds, targets)
 
 def non_maximum_suppression(y, y_hat, iou_threshold=0.5):
     """non maximum suppression for object detection"""
