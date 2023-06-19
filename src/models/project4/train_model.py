@@ -109,7 +109,8 @@ def train(args):
     )
 
     # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size))
+    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size), id2cat=loaders['train'].dataset.id2cat)
+
 
     # Set up logger
     tb_logger = TensorBoardLogger(
@@ -143,6 +144,9 @@ def train(args):
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}.ckpt")
 
     # Testing the model
+
+    # Prediction
+    trainer.predict(model, dataloaders=loaders['test'], ckpt_path = 'best')
         
     # saving sweep plot if activated
     if args.initial_lr_steps != -1:
