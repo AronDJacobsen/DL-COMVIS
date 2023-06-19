@@ -133,7 +133,7 @@ def train(args):
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
         callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
-        logger=tb_logger,
+        #logger=tb_logger,
     )
     
     # Train model

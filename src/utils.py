@@ -73,6 +73,24 @@ def IoU(y, y_hat):
     return intersection / union if not np.allclose(union, 0) else 0.0
 
 
+
+def Recall(y, y_hat):
+    """IoU for objection detection, expects bounding boxes
+    [x1, y1, x2, x2]
+    """
+    # for intersection area
+    x1 = torch.max(y_hat[:, 0], y[:, 0])
+    y1 = torch.max(y_hat[:, 1], y[:, 1])
+    x2 = torch.min(y_hat[:, 2], y[:, 2])
+    y2 = torch.min(y_hat[:, 3], y[:, 3])
+    intersection = torch.clamp((x2 - x1), min=0) * torch.clamp((y2 - y1), min=0)
+    # their sum minus intersection
+    union = y_hat[:, 2] * y_hat[:, 3] + y[:, 2] * y[:, 3] - intersection
+    gt = (y[:, 0]- y[:, 2]) * (y[:, 1]- y[:, 3])
+    return intersection / gt if not np.allclose(gt, 0) else 0.0
+
+
+
 def mAP(preds, targets):
     """mean average precision for object detection"""
     return MeanAveragePrecision()(preds, targets)
@@ -89,38 +107,25 @@ def selective_search(transformed_img, scale=500, sigma=0.9, min_size=10):
 
     return set([bb['rect'] for bb in regions])
     
-def plot_SS(transformed_img, GTs, GT_labels, bboxes, bbox_labels, bbox_scores, idx = None, batch_idx = None, id2cat = None, path = '/work3/s184984/02514/project4_results/predict_imgs'):
+def plot_SS(transformed_img, bboxes, idx = None, batch_idx = None, path = '/work3/s194253/02514/project4_results/predict_imgs'):
     # Albumentations
     fig, ax = plt.subplots(figsize=(6, 6))
+
     folder_path = f"{path}/{path.split('/')[-1]}_batchidx{batch_idx}"
+
+    print(transformed_img)
+    print(bboxes)
 
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
     ax.imshow(transforms.ToPILImage()(transformed_img))
-    for i, (x1,y1,x2,y2) in enumerate(bboxes.cpu().numpy()):
+    for x1,y1,x2,y2 in bboxes.cpu().numpy():
+        print(x1,y1,x2,y2)
         bbox = mpatches.Rectangle(
             (x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=1)
         ax.add_patch(bbox)
-        ax.add_artist(bbox)
-        rx, ry = bbox.get_xy()
-        cx = rx + bbox.get_width()/2.0
-        cy = ry + bbox.get_height()/2.0
-
-        ax.annotate(f"{id2cat[int(bbox_labels[i].cpu().numpy())]}, prob {bbox_scores[i].cpu().numpy():.2f}", (cx, cy), color='red', weight='bold', 
-                    fontsize=6, ha='center', va='center')
-        
-    for i, (x1,y1,x2,y2) in enumerate(GTs.cpu().numpy()):
-        bbox = mpatches.Rectangle(
-            (x1, y1), x2-x1, y2-y1, fill=False, edgecolor='green', linewidth=1)
-        ax.add_patch(bbox)
-        ax.add_artist(bbox)
-        rx, ry = bbox.get_xy()
-        #cx = rx + bbox.get_width()/2.0
-        #cy = ry + bbox.get_height()/2.0
-
-        ax.annotate(f"{id2cat[int(GT_labels[i].cpu().numpy())]}", (rx+5, ry-5), color='green', weight='bold', 
-                    fontsize=6, ha='center', va='center')        
+        break
 
     plt.axis('off')
     plt.savefig(f'{folder_path}/idx{idx}.png')
