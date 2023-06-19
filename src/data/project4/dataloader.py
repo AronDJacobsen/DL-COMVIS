@@ -188,14 +188,12 @@ class WasteDataset(Dataset):
 
 def get_loaders(
         dataset, 
-        batch_size=64, seed=1, num_workers=1, 
+        batch_size=1, seed=1, num_workers=1, 
         augmentations:dict={'rotate': False, 'flip': False}, 
         img_size=(512, 512), region_size=(224, 224),
-        use_super_categories=True
+        use_super_categories=True,
+        root = '/dtu/datasets1/02514/data_wastedetection',
     ) -> Tuple[dict, int]:
-
-    if dataset == 'waste':
-        root = '/dtu/datasets1/02514/data_wastedetection'
     
     # Set seed for split control
     set_seed(seed)
@@ -213,9 +211,9 @@ def get_loaders(
     ], bbox_params=A.BboxParams(format='coco', label_fields=['category_ids']), is_check_shapes=False)
 
     # Get train, validation and test sets
-    trainset    = WasteDataset('train', transform=train_transform, region_size=region_size, use_super_categories=use_super_categories)
-    valset      = WasteDataset('val', transform=test_transform, region_size=region_size, use_super_categories=use_super_categories)
-    testset     = WasteDataset('test', transform=test_transform, region_size=region_size, use_super_categories=use_super_categories)
+    trainset    = WasteDataset('train', data_path=root, transform=train_transform, region_size=region_size, use_super_categories=use_super_categories)
+    valset      = WasteDataset('val',   data_path=root, transform=test_transform, region_size=region_size, use_super_categories=use_super_categories)
+    testset     = WasteDataset('test',  data_path=root, transform=test_transform, region_size=region_size, use_super_categories=use_super_categories)
 
     # Get dataloaders
     trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True,  num_workers=num_workers, collate_fn=lambda x: x)

@@ -42,6 +42,8 @@ def parse_arguments():
                         help="Determines console logging.")
     parser.add_argument("--devices", type=int, default=1, 
                         help="Number of devices"),
+    parser.add_argument("--data_path", type=str, default="/dtu/datasets1/02514/data_wastedetection", 
+                        help="Path to dataset"),
     
     parser.add_argument("--out", type=bool, default=False,
                         help="output individual predicted images")
@@ -105,6 +107,7 @@ def train(args):
         img_size = (512, 512),
         region_size = (args.region_size, args.region_size),
         use_super_categories=args.use_super_categories,
+        root = args.data_path,
         #augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
     )
 
