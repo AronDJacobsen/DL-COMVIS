@@ -119,7 +119,7 @@ def train(args):
     tb_logger = TensorBoardLogger(
         save_dir=f"{args.log_path}/{args.experiment_name}/{args.model_name}",
         version=None,
-        name=args.model_name,
+        name=args.experiment_name + '/' + args.model_name,
     )
 
     acc = "gpu" if torch.cuda.is_available() else "cpu"
@@ -132,8 +132,10 @@ def train(args):
         accelerator=acc, 
         max_epochs = args.epochs,
         log_every_n_steps = args.log_every_n,
-        callbacks=[model.model_checkpoint] if args.initial_lr_steps == -1 else [model.model_checkpoint, model.lr_finder],
-        #logger=tb_logger,
+        callbacks=[model.model_checkpoint],
+        logger=tb_logger,
+        limit_train_batches=0.04,   # TODO: remove before final run
+        limit_val_batches=0.04,     # TODO: remove before final run
     )
     
     # Train model
