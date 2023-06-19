@@ -22,6 +22,9 @@ def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, r
         raise ValueError('unknown model name')
 
 
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+
 
 ### BASEMODEL ###
 class BaseModel(pl.LightningModule):
@@ -219,37 +222,20 @@ class EfficientNet(BaseModel):
     def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
         super().__init__(args, loss_fun, optimizer, out, num_classes)
 
-
         # Load model
         self.network = timm.create_model(args.model_name, pretrained=True, num_classes=self.num_classes)
-        # num_classes for 28 categories + 1 background
-        if args.percentage_to_freeze != -1.0:
-            self.freeze_parameters(args.percentage_to_freeze)
+
+        # Freeze parameters
+        self.freeze_parameters(args.percentage_to_freeze)
 
     def freeze_parameters(self, percentage_to_freeze):
         # Freeze weights
-        if percentage_to_freeze is None:
-            print(f"Freezing classification layer ! ")
-            for param in self.network.parameters():
-                param.requires_grad = False
-            
-            # Require gradient for classification layer
-            self.network.classifier.requires_grad_()
-
-        else:
-            total_params = sum(p.numel() for p in self.network.parameters())  # Count total parameters
-            params_to_freeze = int(percentage_to_freeze * total_params)  # Calculate number of parameters to freeze
-
-            frozen_params = 0
-            non_frozen_params = 0
-            for param in self.network.parameters():
-                if frozen_params < params_to_freeze:
-                    param.requires_grad = False  # Freeze the parameter
-                    frozen_params += param.numel()  # Update the count of frozen parameters
-                else:
-                    non_frozen_params += param.numel()
-
-            print(f"Froze {frozen_params}/{frozen_params + non_frozen_params} = {frozen_params / (frozen_params + non_frozen_params)}%")
+        print(f"Freezing everything but the classification layer ! ")
+        for param in self.network.parameters():
+            param.requires_grad = False
+        
+        # Require gradient for classification layer
+        self.network.classifier.requires_grad_()
 
     def forward(self, x):
         return self.network(x)
