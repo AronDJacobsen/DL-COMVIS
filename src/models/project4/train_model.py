@@ -93,11 +93,6 @@ def train(args):
     loss_fun = get_loss(args.loss)
     optimizer = get_optimizer(args.optimizer)
 
-    # Get normalization constants
-    # TODO:
-    #train_mean, train_std = get_normalization_constants(root=args.data_path, seed=args.seed)
-
-
     # Get data loaders with applied transformations
     loaders, num_classes = get_loaders(
         dataset='waste', 
@@ -108,12 +103,11 @@ def train(args):
         region_size = (args.region_size, args.region_size),
         use_super_categories=args.use_super_categories,
         root = args.data_path,
-        #augmentations={'rotate': args.augmentation[0], 'flip': args.augmentation[1]},
     )
 
     # Load model
     model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size), id2cat=loaders['train'].dataset.id2cat)
-
+    model.lr = args.lr
 
     # Set up logger
     tb_logger = TensorBoardLogger(
@@ -134,8 +128,8 @@ def train(args):
         log_every_n_steps = args.log_every_n,
         callbacks=[model.model_checkpoint],
         logger=tb_logger,
-        limit_train_batches=0.04,   # TODO: remove before final run
-        limit_val_batches=0.04,     # TODO: remove before final run
+        # limit_train_batches=0.04,   # TODO: remove before final run
+        # limit_val_batches=0.06,     # TODO: remove before final run
     )
     
     # Train model

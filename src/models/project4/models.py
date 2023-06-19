@@ -41,7 +41,6 @@ class BaseModel(pl.LightningModule):
         self.offset = 0
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
-        self.mAP = MeanAveragePrecision()
         self.id2cat = id2cat
         
         # checkpointing and logging
@@ -61,7 +60,7 @@ class BaseModel(pl.LightningModule):
         num_gt_boxes, num_pred_boxes    = bboxes.shape[0], pred_bboxes.shape[0]
         gt_matches                      = torch.zeros(num_gt_boxes, dtype=torch.bool)
         pred_matches                    = torch.zeros(num_pred_boxes, dtype=torch.bool)
-        pred_gt_bboxes                    = -torch.ones(num_pred_boxes, dtype=torch.long)
+        pred_gt_bboxes                  = -torch.ones(num_pred_boxes, dtype=torch.long)
 
         # Mark no match as background index (which is num_classes - 1 as defined in data loader)
         pred_labels  = (num_classes - 1) * torch.ones(num_pred_boxes, dtype=torch.long) 
@@ -81,8 +80,8 @@ class BaseModel(pl.LightningModule):
                 gt_matches[gt_idx] = True
                 pred_matches[pred_idx] = True
                 # for finding the box later on
-                pred_gt_bboxes[pred_idx] = gt_idx
-                pred_labels[pred_idx] = cat_ids[gt_idx][0]
+                pred_gt_bboxes[pred_idx]    = gt_idx
+                pred_labels[pred_idx]       = cat_ids[gt_idx][0]
 
         return pred_matches, gt_matches, pred_labels, pred_gt_bboxes
 
@@ -116,12 +115,16 @@ class BaseModel(pl.LightningModule):
             all_labels          = torch.concat([pred_labels.to(self.device), cat_ids.flatten().to(self.device)])
 
             # Classify proposed regions
-            y_hat = self.forward(all_regions)
+            y_hat               = self.forward(all_regions)
+            outputs             = torch.nn.functional.softmax(y_hat, dim=1)
+            pred_prob, pred_cat = torch.max(outputs, 1)
 
             # Encode data and compute loss
             one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
             loss               += self.loss_fun(y_hat, one_hot_cat_pred)
-            acc                += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
+
+            acc                += torch.mean((all_labels.detach().cpu() == pred_cat.detach().cpu()).to(torch.float))
+            # acc                += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
 
         loss /= len(batch)
         acc /= len(batch)
@@ -136,7 +139,7 @@ class BaseModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, 0
+        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, []
         y_hat = []
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
@@ -151,53 +154,61 @@ class BaseModel(pl.LightningModule):
             try: 
                 y_hat = self.forward(pred_regions)
                 # maximum probabilities
-                outputs = torch.nn.functional.softmax(y_hat, dim=1)
+                outputs             = torch.nn.functional.softmax(y_hat, dim=1)
                 pred_prob, pred_cat = torch.max(outputs, 1)
 
                 # Applying NMS (remove redundant boxes)
                 keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
                 # Computing AP
                 preds = [{'boxes':  pred_bboxes[keep_indices], 
-                        'scores': pred_prob[keep_indices], 
-                        'labels': pred_cat[keep_indices]}]
+                        'scores':   pred_prob[keep_indices], 
+                        'labels':   pred_cat[keep_indices]}]
                 
-                targets = [{'boxes':  bboxes, 
-                            'labels': cat_ids.flatten()}]
+                targets = [{'boxes':    bboxes, 
+                            'labels':   cat_ids.flatten()}]
                 
                 # calculate mAP
-                self.mAP.update(preds, targets)
-                mAP += self.mAP.compute()['map_50']
+                # self.mAP.update(preds, targets)
+                # mAP += self.mAP.compute()['map_50']
+                mAP += MeanAveragePrecision()(preds, targets)['map']
 
                 # Label accuracy
                 acc += torch.mean((pred_labels.detach().cpu()[keep_indices]==pred_cat.detach().cpu()[keep_indices]).to(torch.float))
-                # IoU
-                IoU += torch.mean(torch.tensor([box_iou(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
-                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
-                                                if gt_bbox_idx !=-1]))
+                
+                # IoU - find pred_bbox with max IoU to ground truths and average
+                iou_with_nms        = box_iou(bboxes, pred_bboxes[keep_indices][pred_gt_bboxes[keep_indices] != -1])
+                iou_without_nms     = box_iou(bboxes, pred_bboxes[pred_gt_bboxes != -1])
+                IoU                += iou_with_nms.max(dim=1)[0].mean()
 
-                recall += torch.mean(torch.tensor([Recall(bboxes[0].cpu().view(1,-1), pred_bboxes[0].cpu().view(1,-1))[0]
-                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
-                                                if gt_bbox_idx !=-1]))
+                # Calculate recall of proposed bboxes
+                bboxes_TP           = (iou_with_nms.argmax(dim=0) > 0.5).sum()  # determine if box is correct based on IoU between NMS pred and GT 
+                all_P               = len(bboxes)     
+                # Store recall in list for computing confidence scores                                                  
+                recall.append((bboxes_TP / all_P).detach().cpu().item())
+
             except: 
-                print("Error found!!!")
+                pass
+                # print("Error found!!!")
 
         # Normalize
-        mAP /= len(batch)
-        acc /= len(batch)
-        IoU /= len(batch)
-        recall /= len(batch)
+        mAP     /= len(batch)
+        acc     /= len(batch)
+        IoU     /= len(batch)
 
         # Log performance
-        self.log('mAP/val',     mAP,    batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('acc/val',     acc,    batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('IoU/val',     IoU,    batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/val',  recall, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val',     mAP,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/val',     acc,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('IoU/val',     IoU,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/val_mean',    np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/val_95lower', np.percentile(recall, q=2.5), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/val_95upper', np.percentile(recall, q=97.5), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('learning_rate',      self.lr, batch_size=len(batch), prog_bar=True, logger=True)
+
 
     def test_step(self, batch, batch_idx):
-            # extract input
-        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, 0
+        # extract input
+        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, []
         y_hat = []
-        
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
@@ -211,47 +222,54 @@ class BaseModel(pl.LightningModule):
             try: 
                 y_hat = self.forward(pred_regions)
                 # maximum probabilities
-                outputs = torch.nn.functional.softmax(y_hat, dim=1)
+                outputs             = torch.nn.functional.softmax(y_hat, dim=1)
                 pred_prob, pred_cat = torch.max(outputs, 1)
 
                 # Applying NMS (remove redundant boxes)
                 keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
                 # Computing AP
                 preds = [{'boxes':  pred_bboxes[keep_indices], 
-                        'scores': pred_prob[keep_indices], 
-                        'labels': pred_cat[keep_indices]}]
+                        'scores':   pred_prob[keep_indices], 
+                        'labels':   pred_cat[keep_indices]}]
                 
-                targets = [{'boxes':  bboxes, 
-                            'labels': cat_ids.flatten()}]
+                targets = [{'boxes':    bboxes, 
+                            'labels':   cat_ids.flatten()}]
                 
                 # calculate mAP
-                self.mAP.update(preds, targets)
-                mAP += self.mAP.compute()['map_50']
+                # self.mAP.update(preds, targets)
+                # mAP += self.mAP.compute()['map_50']
+                mAP += MeanAveragePrecision()(preds, targets)['map']
 
                 # Label accuracy
                 acc += torch.mean((pred_labels.detach().cpu()[keep_indices]==pred_cat.detach().cpu()[keep_indices]).to(torch.float))
-                # IoU
-                IoU += torch.mean(torch.tensor([box_iou(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
-                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
-                                                if gt_bbox_idx !=-1]))
+                
+                # IoU - find pred_bbox with max IoU to ground truths and average
+                iou_with_nms        = box_iou(bboxes, pred_bboxes[keep_indices][pred_gt_bboxes[keep_indices] != -1])
+                iou_without_nms     = box_iou(bboxes, pred_bboxes[pred_gt_bboxes != -1])
+                IoU                += iou_with_nms.max(dim=1)[0].mean()
 
-                recall += torch.mean(torch.tensor([Recall(bboxes[0].cpu().view(1,-1), pred_bboxes[0].cpu().view(1,-1))[0]
-                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
-                                                if gt_bbox_idx !=-1]))
+                # Calculate recall of proposed bboxes
+                bboxes_TP           = (iou_with_nms.argmax(dim=0) > 0.5).sum()  # determine if box is correct based on IoU between NMS pred and GT 
+                all_P               = len(bboxes)     
+                # Store recall in list for computing confidence scores                         
+                recall.append((bboxes_TP / all_P).detach().cpu().item())
+
             except: 
-                print("Error found!!!")
+                pass 
+                # print("Error found!!!")
 
         # Normalize
-        mAP /= len(batch)
-        acc /= len(batch)
-        IoU /= len(batch)
-        recall /= len(batch)
+        mAP     /= len(batch)
+        acc     /= len(batch)
+        IoU     /= len(batch)
 
         # Log performance
-        self.log('mAP/test',    mAP,    batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('acc/test',    acc,    batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('IoU/test',    IoU,    batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/test', recall, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/test',            mAP, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/test',            acc, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('IoU/test',            IoU, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/test_mean',    np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/test_95lower', np.percentile(recall, 2.5), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/test_95upper', np.percentile(recall, 97.5), batch_size=len(batch), prog_bar=True, logger=True)
 
     def predict_step(self, batch, batch_idx):
 

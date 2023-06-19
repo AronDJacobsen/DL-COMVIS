@@ -1,7 +1,7 @@
 #!/bin/sh
-#BSUB -J albertkjoller_efficientnet_v2
-#BSUB -o /work3/s194253/02514/project4_results/sh_logs/albertkjoller_efficientnet_v2.out
-#BSUB -e /work3/s194253/02514/project4_results/sh_errors/albertkjoller_efficientnet_v2.err
+#BSUB -J albertkjoller_efficientnet_v1
+#BSUB -o /work3/s194253/02514/project4_results/sh_logs/albertkjoller_efficientnet_v1.out
+#BSUB -e /work3/s194253/02514/project4_results/sh_errors/albertkjoller_efficientnet_v1.err
 #BSUB -n 6
 #BSUB -q gpua100
 #BSUB -gpu 'num=1:mode=exclusive_process'
@@ -23,5 +23,6 @@ CUDA_VISIBLE_DEVICES=0 python src/models/project4/train_model.py \
     --batch_size 1 \
     --use_super_categories True \
     --seed 0 \
+    --lr 1e-04 \
 
 
