@@ -57,8 +57,10 @@ class WasteDataset(Dataset):
             self.id2catid = {cat['id']: cat2id[cat['name']] for cat in dataset['categories']}
 
         # Get number of classes and category mapping
-        self.num_classes = len(self.categories)
+        self.num_classes = len(self.categories) + 1
         self.id2cat = {index: x for index, x in enumerate(self.categories)}
+        # add background class
+        self.id2cat[len(self.id2cat)] = 'Background'
 
         # get image id and paths
         self.image_paths = [(
@@ -200,11 +202,6 @@ def get_loaders(
     trainset    = WasteDataset('train', transform=train_transform, region_size=region_size, use_super_categories=use_super_categories)
     valset      = WasteDataset('val', transform=test_transform, region_size=region_size, use_super_categories=use_super_categories)
     testset     = WasteDataset('test', transform=test_transform, region_size=region_size, use_super_categories=use_super_categories)
-
-    trainset.__getitem__(0)
-    trainset.__getitem__(1)
-    trainset.__getitem__(2)
-    trainset.__getitem__(3)
 
     # Get dataloaders
     trainloader = DataLoader(trainset,  batch_size=batch_size, shuffle=True,  num_workers=num_workers, collate_fn=lambda x: x)

@@ -69,7 +69,7 @@ def IoU(y, y_hat):
     intersection = torch.clamp((x2 - x1), min=0) * torch.clamp((y2 - y1), min=0)
     # their sum minus intersection
     union = y_hat[:, 2] * y_hat[:, 3] + y[:, 2] * y[:, 3] - intersection
-    return intersection / (union + epsilon)
+    return intersection / union if not np.allclose(union, 0) else 0.0
 
 
 def mAP(y, y_hat):

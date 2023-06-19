@@ -32,11 +32,11 @@ def parse_arguments():
                         help="Data set either")
     parser.add_argument("--use_super_categories", type=bool, default=True,
                         help="Whether to use 60 categories or 28 less fine-grained super categories")
-    parser.add_argument("--log_path", type=str, default = 'lightning_logs',
+    parser.add_argument("--log_path", type=str, default='/work3/s194253/02514/project4_results/logs',
                         help="Path determining where to store logs.")
     parser.add_argument("--log_every_n", type=int, default=1,
                         help="Logging interval.")
-    parser.add_argument("--save_path", type=str,
+    parser.add_argument("--save_path", type=str, default='/work3/s194253/02514/project4_results/models',
                         help="Path determining where to store results.")
     parser.add_argument("--verbose", type=bool, default=False,
                         help="Determines console logging.")
@@ -71,7 +71,7 @@ def parse_arguments():
                         help='List of booleans, i.e. [flip, rotation]')
     
     # EXPERIMENT NAMING
-    parser.add_argument("--experiment_name", type=str, default='test',
+    parser.add_argument("--experiment_name", type=str, default='test123',
                         help="Sets the overall experiment name.")
     
     # MODEL BASED

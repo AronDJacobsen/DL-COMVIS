@@ -38,16 +38,6 @@ class BaseModel(pl.LightningModule):
         self.offset = 0
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
-        # what to log in training and validation
-        self.logs = {
-        #    'acc': accuracy,
-            }
-        # what to calculate when predicting
-        self.metrics = {
-        #    'IoU'         : IoU,
-            }
-        self.log_dict = {}
-
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
@@ -61,135 +51,117 @@ class BaseModel(pl.LightningModule):
     def configure_optimizers(self):
         return self.optimizer(self.parameters(), lr = self.args.lr)
         
-    # TODO: make a general step, for e.g. the first part of all setps
-    def general_step(self, batch, batch_idx):
-        y_hat = 0
-        loss = 0
-        return y_hat, loss
-    
-    def compare_boxes(self, bboxes, pred_bboxes):
+    def compare_boxes(self, bboxes, pred_bboxes, num_classes):
         # initializing
-        num_gt_boxes, num_pred_boxes = bboxes.shape[0], pred_bboxes.shape[0]
-        gt_matches = torch.zeros(num_gt_boxes, dtype=torch.bool)
-        pred_matches = torch.zeros(num_pred_boxes, dtype=torch.bool)
-        # no match is marked -1
-        pred_boxes = -torch.ones(num_pred_boxes, dtype=torch.long)
-        # for each predicted box
-        iou = box_iou(bboxes, pred_bboxes)
+        num_gt_boxes, num_pred_boxes    = bboxes.shape[0], pred_bboxes.shape[0]
+        gt_matches                      = torch.zeros(num_gt_boxes, dtype=torch.bool)
+        pred_matches                    = torch.zeros(num_pred_boxes, dtype=torch.bool)
+
+        # Mark no match as background index (which is "num_classes" as defined in data loader)
+        pred_boxes  = (num_classes - 1) * torch.ones(num_pred_boxes, dtype=torch.long) 
+        # Get IoU matrix
+        iou         = box_iou(bboxes, pred_bboxes)
+
         for pred_idx in range(num_pred_boxes):
             # rows are true, columns are how they compare to each estimates
-            iou_score = iou[pred_idx] # get row
-            # check if there are any matching
-            max_iou = torch.max(iou_score)
-            if max_iou < self.iou_threshold:
-                break
-            # get
-            gt_idx = torch.argmax(iou_score)
-            # for mAP?
-            gt_matches[gt_idx] = True
-            pred_matches[pred_idx] = True
-            # for finding the box
-            pred_boxes[pred_idx] = int(gt_idx)
+            iou_score = iou[:, pred_idx] # get row
 
+            # check if there are any matches between pred_box and gt_bboxes
+            max_iou = torch.max(iou_score)
+            if max_iou >= self.iou_threshold:
+                # Get index of max score
+                gt_idx = torch.argmax(iou_score)
+                # Store matches
+                gt_matches[gt_idx] = True
+                pred_matches[pred_idx] = True
+                # for finding the box later on
+                pred_boxes[pred_idx] = int(gt_idx)
 
         return pred_matches, gt_matches, pred_boxes
 
-
-
     def training_step(self, batch, batch_idx):
-        
         # extract input
-        loss = 0
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
-        y = y.to(torch.float32)
+        loss, acc = 0, 0
+
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
-            (bboxes, regions) = bboxes_data
+            (bboxes, regions)           = bboxes_data
             (pred_bboxes, pred_regions) = pred_bboxes_data
-            # bbox class prediction
-            y_hat = self.forward(pred_regions)
-            # find corresponding gt box
-            pred_matches, gt_matches, pred_boxes = self.compare_boxes(bboxes, pred_bboxes)
-            # gather data
-            mask = pred_boxes >= 0 # masking the bboxes similar to gt
-            bbox_class_pred = y_hat[mask].to(torch.float) # predicted logits
-            cat_pred = torch.take(cat_id, pred_boxes[mask]) # corresponding categories
-            one_hot_cat_pred = torch.nn.functional.one_hot(cat_pred, num_classes=self.num_classes).to(torch.float)
-            loss += self.loss_fun(bbox_class_pred, one_hot_cat_pred)
-        
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
-        y = y.to(torch.float32)
 
-        # Get prediction, loss and accuracy
-        loss = self.loss_fun(y_hat, y)
-        # log
-        for name, fun in self.logs.items():
-            self.log('train_'+name, fun(y_hat, y), prog_bar=True, logger=True)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        return loss
+            # find corresponding gt box
+            pred_matches, gt_matches, pred_labels = self.compare_boxes(bboxes, pred_bboxes, self.num_classes)
+            
+            # Downsample background to 25% non-background vs 75% background
+            non_background      = pred_labels != (self.num_classes - 1) 
+            n_non_background    = non_background.sum().item()
+            n_background_sample = (n_non_background + len(regions)) * 3
+            # Get subset background idxs
+            background_idxs     = np.random.permutation(np.arange(len(pred_labels))[pred_labels == (self.num_classes - 1)])[:n_background_sample]
+
+            # Filter data to subset
+            pred_bboxes         = torch.concat([pred_bboxes[non_background], pred_bboxes[background_idxs]])
+            pred_labels         = torch.concat([pred_labels[non_background], pred_labels[background_idxs]])
+            pred_regions        = torch.concat([pred_regions[non_background], pred_regions[background_idxs]])
+            
+            all_regions         = torch.concat([pred_regions, regions])
+            all_labels          = torch.concat([pred_labels, cat_id.flatten()])
+
+            # Classify proposed regions
+            y_hat = self.forward(all_regions)
+
+            # Encode data and compute loss
+            one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
+            loss                += self.loss_fun(y_hat, one_hot_cat_pred)
+            acc                 += (y_hat.argmax(dim=1) == all_labels).to(torch.float).mean().item()
+
+        loss /= len(batch)
+
+        # Log performance
+        self.log('loss/train', loss, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/train', acc, batch_size=len(batch), prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss = 0
+        loss, acc = 0, 0
+
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
-            (bboxes, regions) = bboxes_data
+            (bboxes, regions)           = bboxes_data
             (pred_bboxes, pred_regions) = pred_bboxes_data
-            # bbox class prediction
-            y_hat = self.forward(pred_regions)
-            # find corresponding gt box
-            pred_matches, gt_matches, pred_boxes = self.compare_boxes(bboxes, pred_bboxes)
-            # gather data
-            mask = pred_boxes >= 0 # masking the bboxes similar to gt
-            bbox_class_pred = y_hat[mask].to(torch.float) # predicted logits
-            cat_pred = torch.take(cat_id, pred_boxes[mask]) # corresponding categories
-            one_hot_cat_pred = torch.nn.functional.one_hot(cat_pred, num_classes=self.num_classes).to(torch.float)
-            loss += self.loss_fun(bbox_class_pred, one_hot_cat_pred)
-        
-        # TODO:
-        # log
-        for name, fun in self.logs.items():
-            self.log('val_'+name, fun(y_hat, y), prog_bar=True, logger=True)
-        for name, fun in self.metrics.items():
-            self.log('val_'+name, fun(y_hat, y))
-        self.log("val_loss", loss, prog_bar=True, logger=True)
 
-    def test_step(self, batch, batch_idx): 
-        
+            # Classify proposed regions
+            y_hat = self.forward(pred_regions)
+
+        # Compute performance
+        IoU = 1. # TODO: change
+        mAP = 1. # TODO: change
+
+        # Log performance
+        self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
+
+    def test_step(self, batch, batch_idx):
         # extract input
-        loss = 0
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
-        y = y.to(torch.float32)
+        loss, acc = 0, 0
+
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
-            (bboxes, regions) = bboxes_data
+            (bboxes, regions)           = bboxes_data
             (pred_bboxes, pred_regions) = pred_bboxes_data
-            # bbox class prediction
+
+            # Classify proposed regions
             y_hat = self.forward(pred_regions)
-            # find corresponding gt box
-            pred_matches, gt_matches, pred_boxes = self.compare_boxes(bboxes, pred_bboxes)
-            # gather data
-            mask = pred_boxes >= 0 # masking the bboxes similar to gt
-            bbox_class_pred = y_hat[mask].to(torch.float) # predicted logits
-            cat_pred = torch.take(cat_id, pred_boxes[mask]) # corresponding categories
-            one_hot_cat_pred = torch.nn.functional.one_hot(cat_pred, num_classes=self.num_classes).to(torch.float)
-            loss += self.loss_fun(bbox_class_pred, one_hot_cat_pred)
-        
 
+        # Compute performance
+        IoU = 1. # TODO: change
+        mAP = 1. # TODO: change
 
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes) 
-        y = y.to(torch.float32)
-        loss = self.loss_fun(y, y_hat)
-        # predicting
-        # getting output values
-        self.log('Test loss', loss) #, prog_bar=True)
-        for name, fun in self.logs.items():
-            self.log('Test '+name, fun(y_hat, y))
-        for name, fun in self.metrics.items():
-            self.log('Test '+name, fun(y_hat, y))
+        # Log performance
+        self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
 
     def predict_step(self, batch, batch_idx):
         x, y = batch
