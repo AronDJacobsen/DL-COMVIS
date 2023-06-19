@@ -9,15 +9,15 @@ import timm
 from torchmetrics.classification import Accuracy
 from torchvision.ops import box_iou, nms
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
-from collections import Counter
+from collections import Counter, nms
 
 from src.utils import accuracy, IoU, plot_SS
 
-def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512)):
+def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512), id2cat=None):
     if model_name == 'testnet':
-        return TestNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size)
+        return TestNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size, id2cat=id2cat)
     elif model_name == 'efficientnet_b4':
-        return EfficientNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size)
+        return EfficientNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size, id2cat=id2cat)
     else:
         raise ValueError('unknown model name')
 
@@ -31,7 +31,7 @@ class BaseModel(pl.LightningModule):
     '''
     Contains all recurring functionality
     '''
-    def __init__(self, args, loss_fun, optimizer, out, num_classes):
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, id2cat):
         super().__init__()
         self.args = args
         self.lr = self.args.lr
@@ -42,6 +42,7 @@ class BaseModel(pl.LightningModule):
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
         self.mAP = MeanAveragePrecision()
+        self.id2cat = id2cat
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
@@ -142,6 +143,28 @@ class BaseModel(pl.LightningModule):
 
             # Classify proposed regions
             y_hat = self.forward(pred_regions)
+
+            # maximum probabilities
+            outputs = torch.nn.functional.softmax(y_hat, dim=1)
+            pred_prob, pred_cat = torch.max(outputs, 1)
+            # Applying NMS (remove redundant boxes)
+            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold)
+            # Computing AP
+            preds = [{'boxes':  pred_bboxes[keep_indices], 
+                      'scores': pred_prob[keep_indices], 
+                      'labels': pred_cat[keep_indices]}]
+            
+            targets = [{'boxes':  bboxes, 
+                        'labels': cat_id.flatten()}]
+            # update mAP class
+            self.mAP.update(preds, targets)
+            # calculate
+            map += self.mAP.compute()['map_50']
+
+        # Compute performance
+        IoU = 1. # TODO: change
+        mAP = 1. # TODO: change
+
             
             # maximum probabilities
             outputs = torch.nn.functional.softmax(y_hat, dim=1)
@@ -187,18 +210,37 @@ class BaseModel(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx):
 
-            # for each image
-            for i, (img, cat_id, bboxes_data, pred_bboxes_data) in enumerate(batch):
-                # for each bounding box
-                (bboxes, regions)           = bboxes_data
-                (pred_bboxes, pred_regions) = pred_bboxes_data
+        # for each image
+        for i, (img, cat_id, bboxes_data, pred_bboxes_data) in enumerate(batch):
+            # for each bounding box
+            (bboxes, regions)           = bboxes_data # - not available at this point
+            (pred_bboxes, pred_regions) = pred_bboxes_data
 
-                plot_SS(img, pred_bboxes, i, batch_idx)
+            # Classify proposed regions
+            y_hat = self.forward(pred_regions)
 
+            # maximum probabilities
+            outputs = torch.nn.functional.softmax(y_hat, dim=1)
+            pred_prob, pred_cat = torch.max(outputs, 1)
+
+            print("pred_cat:", pred_cat)
+
+            # Applying NMS (remove redundant boxes)
+            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, 0.5)
+
+            # Computing AP
+            preds = {'boxes': pred_bboxes[keep_indices][pred_cat[keep_indices] != max(self.id2cat.keys())], 
+                    'scores': pred_prob[keep_indices][pred_cat[keep_indices] != max(self.id2cat.keys())], 
+                    'labels': pred_cat[keep_indices][pred_cat[keep_indices] != max(self.id2cat.keys())]} 
+            
+            targets = {'boxes':  bboxes, 
+                        'labels': cat_id.flatten()}
+
+            plot_SS(img, targets['boxes'], targets['labels'], preds['boxes'], preds['labels'], preds['scores'], i, batch_idx, self.id2cat)
 
 class TestNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
-        super().__init__(args, loss_fun, optimizer, out, num_classes)
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size, id2cat):
+        super().__init__(args, loss_fun, optimizer, out, num_classes, id2cat)
         h, w = region_size
         self.fc1 = nn.Linear(h*w*3, 128)  # 5*5 from image dimension
         self.fc2 = nn.Linear(128, 64)
@@ -217,10 +259,11 @@ class TestNet(BaseModel):
         #x = self.softmax(x)
         return x
 
+### OLD ### have to adjust and remove the train test val steps as they are in the base model
 
 class EfficientNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
-        super().__init__(args, loss_fun, optimizer, out, num_classes)
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size, id2cat):
+        super().__init__(args, loss_fun, optimizer, out, num_classes, id2cat)
 
         # Load model
         self.network = timm.create_model(args.model_name, pretrained=True, num_classes=self.num_classes)
