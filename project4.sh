@@ -1,5 +1,5 @@
 #!/bin/sh
-#BSUB -J 
+#BSUB -J trial
 #BSUB -o /work3/s194253/02514/project4/sh_logs/test_output_file_%J.out
 #BSUB -e /work3/s194253/02514/project4/sh_errors%J.err
 #BSUB -n 6

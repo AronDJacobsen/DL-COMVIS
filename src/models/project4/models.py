@@ -9,7 +9,7 @@ import timm
 from torchmetrics.classification import Accuracy
 from torchvision.ops import box_iou, nms
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
-from collections import Counter, nms
+from collections import Counter
 
 from src.utils import accuracy, IoU, plot_SS
 
@@ -159,30 +159,12 @@ class BaseModel(pl.LightningModule):
             # update mAP class
             self.mAP.update(preds, targets)
             # calculate
-            map += self.mAP.compute()['map_50']
-
-        # Compute performance
-        IoU = 1. # TODO: change
-        mAP = 1. # TODO: change
-
-            
-            # maximum probabilities
-            outputs = torch.nn.functional.softmax(y_hat, dim=1)
-            pred_prob, pred_cat = torch.max(outputs, 1)
-            # Applying NMS (remove redundant boxes)
-            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold)
-            # Computing AP
-            preds = [{'boxes': pred_bboxes[keep_indices], 'scores':pred_prob[keep_indices], 'labels':pred_cat[keep_indices]}]
-            targets = [{'boxes':bboxes, 'labels':cat_id.flatten()}]
-            # update mAP class
-            self.mAP.update(preds, targets)
-            # calculate
             mAP += self.mAP.compute()['map_50']
-
     
         # Normalize
         IoU /= len(batch)
         mAP /= len(batch)
+
         # Log performance
         self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
