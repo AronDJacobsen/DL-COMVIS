@@ -147,6 +147,7 @@ def train(args):
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}.ckpt")
 
     # Testing the model
+    trainer.test(model, dataloaders=loaders['test'], ckpt_path = 'best')
 
     # Prediction
     trainer.predict(model, dataloaders=loaders['test'], ckpt_path = 'best')

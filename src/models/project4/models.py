@@ -87,6 +87,7 @@ class BaseModel(pl.LightningModule):
         return pred_matches, gt_matches, pred_labels, pred_gt_bboxes
 
     def training_step(self, batch, batch_idx):
+
         # extract input
         loss, acc = 0, 0
 
@@ -131,7 +132,7 @@ class BaseModel(pl.LightningModule):
         self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
         self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        return loss
+        return None # loss
     
     # def validation_step(self, batch, batch_idx):
     #     # extract input
@@ -192,35 +193,39 @@ class BaseModel(pl.LightningModule):
             # find corresponding gt box
             _, _, pred_labels, pred_gt_bboxes = self.compare_boxes(bboxes, cat_ids, pred_bboxes, self.num_classes)
             # Classify proposed regions
-            y_hat = self.forward(pred_regions)
-            # maximum probabilities
-            outputs = torch.nn.functional.softmax(y_hat, dim=1)
-            pred_prob, pred_cat = torch.max(outputs, 1)
+            print(pred_regions.shape)
+            try: 
+                y_hat = self.forward(pred_regions)
+                # maximum probabilities
+                outputs = torch.nn.functional.softmax(y_hat, dim=1)
+                pred_prob, pred_cat = torch.max(outputs, 1)
 
-            # Applying NMS (remove redundant boxes)
-            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
-            # Computing AP
-            preds = [{'boxes':  pred_bboxes[keep_indices], 
-                      'scores': pred_prob[keep_indices], 
-                      'labels': pred_cat[keep_indices]}]
-            
-            targets = [{'boxes':  bboxes, 
-                        'labels': cat_ids.flatten()}]
-            
-            # calculate mAP
-            self.mAP.update(preds, targets)
-            mAP += self.mAP.compute()['map_50']
+                # Applying NMS (remove redundant boxes)
+                keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
+                # Computing AP
+                preds = [{'boxes':  pred_bboxes[keep_indices], 
+                        'scores': pred_prob[keep_indices], 
+                        'labels': pred_cat[keep_indices]}]
+                
+                targets = [{'boxes':  bboxes, 
+                            'labels': cat_ids.flatten()}]
+                
+                # calculate mAP
+                self.mAP.update(preds, targets)
+                mAP += self.mAP.compute()['map_50']
 
-            # Label accuracy
-            acc += torch.mean((pred_labels.detach().cpu()[keep_indices]==pred_cat.detach().cpu()[keep_indices]).to(torch.float))
-            # IoU
-            IoU += torch.mean(torch.tensor([box_iou(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
-                                            for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
-                                            if gt_bbox_idx !=-1]))
+                # Label accuracy
+                acc += torch.mean((pred_labels.detach().cpu()[keep_indices]==pred_cat.detach().cpu()[keep_indices]).to(torch.float))
+                # IoU
+                IoU += torch.mean(torch.tensor([box_iou(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
+                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
+                                                if gt_bbox_idx !=-1]))
 
-            recall += torch.mean(torch.tensor([Recall(bboxes[0].cpu().view(1,-1), pred_bboxes[0].cpu().view(1,-1))[0]
-                                            for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
-                                            if gt_bbox_idx !=-1]))
+                recall += torch.mean(torch.tensor([Recall(bboxes[0].cpu().view(1,-1), pred_bboxes[0].cpu().view(1,-1))[0]
+                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
+                                                if gt_bbox_idx !=-1]))
+            except: 
+                print("Error found!!!")
 
         # Normalize
         mAP /= len(batch)
@@ -233,28 +238,67 @@ class BaseModel(pl.LightningModule):
         self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('acc/val', acc, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/val', recall, batch_size=len(batch), prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
-        # extract input
-        loss, acc = 0, 0
-
+            # extract input
+        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, 0
+        y_hat = []
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
             (bboxes, regions)           = bboxes_data
             (pred_bboxes, pred_regions) = pred_bboxes_data
-
+            # find corresponding gt box
+            _, _, pred_labels, pred_gt_bboxes = self.compare_boxes(bboxes, cat_ids, pred_bboxes, self.num_classes)
             # Classify proposed regions
-            y_hat = self.forward(pred_regions)
+            print(pred_regions.shape)
+            try: 
+                y_hat = self.forward(pred_regions)
+                # maximum probabilities
+                outputs = torch.nn.functional.softmax(y_hat, dim=1)
+                pred_prob, pred_cat = torch.max(outputs, 1)
 
-        # Compute performance
-        IoU = 1. # TODO: change
-        mAP = 1. # TODO: change
+                # Applying NMS (remove redundant boxes)
+                keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
+                # Computing AP
+                preds = [{'boxes':  pred_bboxes[keep_indices], 
+                        'scores': pred_prob[keep_indices], 
+                        'labels': pred_cat[keep_indices]}]
+                
+                targets = [{'boxes':  bboxes, 
+                            'labels': cat_ids.flatten()}]
+                
+                # calculate mAP
+                self.mAP.update(preds, targets)
+                mAP += self.mAP.compute()['map_50']
+
+                # Label accuracy
+                acc += torch.mean((pred_labels.detach().cpu()[keep_indices]==pred_cat.detach().cpu()[keep_indices]).to(torch.float))
+                # IoU
+                IoU += torch.mean(torch.tensor([box_iou(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
+                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
+                                                if gt_bbox_idx !=-1]))
+
+                recall += torch.mean(torch.tensor([Recall(bboxes[0].cpu().view(1,-1), pred_bboxes[0].cpu().view(1,-1))[0]
+                                                for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
+                                                if gt_bbox_idx !=-1]))
+            except: 
+                print("Error found!!!")
+
+        # Normalize
+        mAP /= len(batch)
+        acc /= len(batch)
+        IoU /= len(batch)
+        recall /= len(batch)
+
 
         # Log performance
-        self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/test', mAP, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/test', acc, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('IoU/test', IoU, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/test', recall, batch_size=len(batch), prog_bar=True, logger=True)
+
 
     def predict_step(self, batch, batch_idx):
 
