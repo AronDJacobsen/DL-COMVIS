@@ -8,8 +8,9 @@ import numpy as np
 import timm
 from torchmetrics.classification import Accuracy
 from torchvision.ops import box_iou, nms
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 
-from src.utils import accuracy, IoU, mAP
+#from src.utils import accuracy, IoU, mAP
 
 
 def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512)):
@@ -37,7 +38,7 @@ class BaseModel(pl.LightningModule):
         self.offset = 0
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
-        
+        self.mAP = MeanAveragePrecision()
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
@@ -123,7 +124,7 @@ class BaseModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss, acc, map = 0, 0, 0
+        loss, acc,IoU, mAP = 0, 0, 0
         y_hat = []
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
@@ -142,15 +143,18 @@ class BaseModel(pl.LightningModule):
             # Computing AP
             preds = [{'boxes': pred_bboxes[keep_indices], 'scores':pred_prob[keep_indices], 'labels':pred_cat[keep_indices]}]
             targets = [{'boxes':bboxes, 'labels':cat_id.flatten()}]
-            map += mAP(preds, targets)
+            # update mAP class
+            self.mAP.update(preds, targets)
+            # calculate
+            map += self.mAP.compute()['map_50']
 
-        # Compute performance
-        
-        IoU = 1. # TODO: change
-        map /= len(batch)
+    
+        # Normalize
+        IoU /= len(batch)
+        mAP /= len(batch)
         # Log performance
         self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('mAP/val', map, batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
 
     def test_step(self, batch, batch_idx):
         # extract input
