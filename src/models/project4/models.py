@@ -13,14 +13,17 @@ from collections import Counter
 
 from src.utils import accuracy, IoU, plot_SS, Recall
 
-def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512)):
+def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512), id2cat=None):
     if model_name == 'testnet':
-        return TestNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size)
+        return TestNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size, id2cat=id2cat)
     elif model_name == 'efficientnet_b4':
-        return EfficientNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size)
+        return EfficientNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size, id2cat=id2cat)
     else:
         raise ValueError('unknown model name')
 
+
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
 
 
 ### BASEMODEL ###
@@ -28,7 +31,7 @@ class BaseModel(pl.LightningModule):
     '''
     Contains all recurring functionality
     '''
-    def __init__(self, args, loss_fun, optimizer, out, num_classes):
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, id2cat):
         super().__init__()
         self.args = args
         self.lr = self.args.lr
@@ -39,11 +42,11 @@ class BaseModel(pl.LightningModule):
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
         self.mAP = MeanAveragePrecision()
-        self.IoU = IoU
+        self.id2cat = id2cat
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
-            monitor = "val_loss",
+            monitor = "mAP/val",
             verbose = args.verbose,
             filename = "{epoch}_{val_loss:.4f}",
         )
@@ -84,10 +87,56 @@ class BaseModel(pl.LightningModule):
         return pred_matches, gt_matches, pred_labels, pred_gt_bboxes
 
     def training_step(self, batch, batch_idx):
-
         # extract input
         loss, acc = 0, 0
 
+        # for each image
+        for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
+            # for each bounding box
+            (bboxes, regions)           = bboxes_data
+            (pred_bboxes, pred_regions) = pred_bboxes_data
+
+            # find corresponding gt box
+            pred_matches, gt_matches, pred_labels = self.compare_boxes(bboxes, cat_ids, pred_bboxes, self.num_classes)
+            
+            # Downsample background to 25% non-background vs 75% background
+            non_background      = pred_labels != (self.num_classes - 1) 
+            n_non_background    = non_background.sum().item()
+            n_background_sample = (n_non_background + len(regions)) * 3
+            # Get subset background idxs
+            background_idxs     = np.random.permutation(np.arange(len(pred_labels))[pred_labels == (self.num_classes - 1)])[:n_background_sample]
+
+            # Filter data to subset
+            pred_bboxes         = torch.concat([pred_bboxes[non_background], pred_bboxes[background_idxs]])
+            pred_labels         = torch.concat([pred_labels[non_background], pred_labels[background_idxs]])
+            pred_regions        = torch.concat([pred_regions[non_background], pred_regions[background_idxs]])
+            
+            all_regions         = torch.concat([pred_regions, regions])            
+            all_labels          = torch.concat([pred_labels.to(self.device), cat_ids.flatten().to(self.device)])
+
+            # Classify proposed regions
+            y_hat = self.forward(all_regions)
+
+            # Encode data and compute loss
+            one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
+            loss               += self.loss_fun(y_hat, one_hot_cat_pred)
+            acc                += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
+
+        loss /= len(batch)
+        acc /= len(batch)
+
+        # Log performance
+        self.log('loss/train_step',  loss, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('loss/train_epoch', loss, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+        self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        # extract input
+        loss, acc, IoU, mAP = 0, 0, 0, 0
+        y_hat = []
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
@@ -112,24 +161,24 @@ class BaseModel(pl.LightningModule):
             all_regions         = torch.concat([pred_regions, regions])            
             all_labels          = torch.concat([pred_labels.to(self.device), cat_ids.flatten().to(self.device)])
 
-            # Classify proposed regions
+                # Classify proposed regions
             y_hat = self.forward(all_regions)
 
             # Encode data and compute loss
             one_hot_cat_pred    = torch.nn.functional.one_hot(all_labels, num_classes=self.num_classes).to(torch.float)
-            loss                += self.loss_fun(y_hat, one_hot_cat_pred)
-            acc                 += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
+            loss               += self.loss_fun(y_hat, one_hot_cat_pred)
+            acc                += (y_hat.detach().cpu().argmax(dim=1) == all_labels.detach().cpu()).to(torch.float).mean().item()
 
-        loss /= len(batch)
-        acc /= len(batch)
+            loss /= len(batch)
+            acc /= len(batch)
 
-        # Log performance
-        self.log('loss/train_step',  loss, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('loss/train_epoch', loss, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
-        self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # Log performance
+            self.log('loss/train_step',  loss, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('loss/train_epoch', loss, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log('acc/train_step',  acc, batch_size=len(batch), on_step=True, on_epoch=False, prog_bar=True, logger=True)
+            self.log('acc/train_epoch', acc, batch_size=len(batch), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        return loss
+            return loss
     
     def validation_step(self, batch, batch_idx):
         # extract input
@@ -151,8 +200,12 @@ class BaseModel(pl.LightningModule):
             # Applying NMS (remove redundant boxes)
             keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold)
             # Computing AP
-            preds = [{'boxes': pred_bboxes[keep_indices], 'scores':pred_prob[keep_indices], 'labels':pred_cat[keep_indices]}]
-            targets = [{'boxes': bboxes, 'labels': cat_ids.flatten()}]
+            preds = [{'boxes':  pred_bboxes[keep_indices], 
+                      'scores': pred_prob[keep_indices], 
+                      'labels': pred_cat[keep_indices]}]
+            
+            targets = [{'boxes':  bboxes, 
+                        'labels': cat_id.flatten()}]
             # calculate mAP
             self.mAP.update(preds, targets)
             mAP += self.mAP.compute()['map_50']
@@ -170,10 +223,28 @@ class BaseModel(pl.LightningModule):
                                             if gt_bbox_idx !=-1]))
             # TODO: more metrics?
 
+            # update mAP class
+            self.mAP.update(preds, targets)
+            # calculate
+            map += self.mAP.compute()['map_50']
+
+            # Label accuracy
+            # estimated label and predicted class
+            acc += torch.mean((pred_labels[keep_indices]==pred_cat[keep_indices]).to(torch.float))
+            # IoU
+            IoU += torch.mean(torch.tensor([box_iou(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
+                                            for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
+                                            if gt_bbox_idx !=-1]))
+            Recall += torch.mean(torch.tensor([Recall(bboxes[0].view(1,-1), pred_bboxes[0].view(1,-1))[0] 
+                                            for gt_bbox_idx, pred_bbox in zip(pred_gt_bboxes[keep_indices], pred_bboxes[keep_indices]) 
+                                            if gt_bbox_idx !=-1]))
+            # TODO: more metrics?
         # Normalize
         mAP /= len(batch)
         acc /= len(batch)
         IoU /= len(batch)
+        Recall /= len(batch)
+
 
         # Log performance
         self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
@@ -204,18 +275,37 @@ class BaseModel(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx):
 
-            # for each image
-            for i, (img, cat_id, bboxes_data, pred_bboxes_data) in enumerate(batch):
-                # for each bounding box
-                (bboxes, regions)           = bboxes_data
-                (pred_bboxes, pred_regions) = pred_bboxes_data
+        # for each image
+        for i, (img, cat_id, bboxes_data, pred_bboxes_data) in enumerate(batch):
+            # for each bounding box
+            (bboxes, regions)           = bboxes_data # - not available at this point
+            (pred_bboxes, pred_regions) = pred_bboxes_data
 
-                plot_SS(img, pred_bboxes, i, batch_idx)
+            # Classify proposed regions
+            y_hat = self.forward(pred_regions)
 
+            # maximum probabilities
+            outputs = torch.nn.functional.softmax(y_hat, dim=1)
+            pred_prob, pred_cat = torch.max(outputs, 1)
+
+            print("pred_cat:", pred_cat)
+
+            # Applying NMS (remove redundant boxes)
+            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, 0.5)
+
+            # Computing AP
+            preds = {'boxes': pred_bboxes[keep_indices][pred_cat[keep_indices] != max(self.id2cat.keys())], 
+                    'scores': pred_prob[keep_indices][pred_cat[keep_indices] != max(self.id2cat.keys())], 
+                    'labels': pred_cat[keep_indices][pred_cat[keep_indices] != max(self.id2cat.keys())]} 
+            
+            targets = {'boxes':  bboxes, 
+                        'labels': cat_id.flatten()}
+
+            plot_SS(img, targets['boxes'], targets['labels'], preds['boxes'], preds['labels'], preds['scores'], i, batch_idx, self.id2cat)
 
 class TestNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
-        super().__init__(args, loss_fun, optimizer, out, num_classes)
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size, id2cat):
+        super().__init__(args, loss_fun, optimizer, out, num_classes, id2cat)
         h, w = region_size
         self.fc1 = nn.Linear(h*w*3, 128)  # 5*5 from image dimension
         self.fc2 = nn.Linear(128, 64)
@@ -234,81 +324,26 @@ class TestNet(BaseModel):
         #x = self.softmax(x)
         return x
 
-
-
 ### OLD ### have to adjust and remove the train test val steps as they are in the base model
 
-
 class EfficientNet(BaseModel):
-    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
-        super().__init__(args, loss_fun, optimizer, out, num_classes)
-
+    def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size, id2cat):
+        super().__init__(args, loss_fun, optimizer, out, num_classes, id2cat)
 
         # Load model
         self.network = timm.create_model(args.model_name, pretrained=True, num_classes=self.num_classes)
-        # num_classes for 28 categories + 1 background
-        if args.percentage_to_freeze != -1.0:
-            self.freeze_parameters(args.percentage_to_freeze)
+
+        # Freeze parameters
+        self.freeze_parameters(args.percentage_to_freeze)
 
     def freeze_parameters(self, percentage_to_freeze):
         # Freeze weights
-        if percentage_to_freeze is None:
-            print(f"Freezing classification layer ! ")
-            for param in self.network.parameters():
-                param.requires_grad = False
-            
-            # Require gradient for classification layer
-            self.network.classifier.requires_grad_()
-
-        else:
-            total_params = sum(p.numel() for p in self.network.parameters())  # Count total parameters
-            params_to_freeze = int(percentage_to_freeze * total_params)  # Calculate number of parameters to freeze
-
-            frozen_params = 0
-            non_frozen_params = 0
-            for param in self.network.parameters():
-                if frozen_params < params_to_freeze:
-                    param.requires_grad = False  # Freeze the parameter
-                    frozen_params += param.numel()  # Update the count of frozen parameters
-                else:
-                    non_frozen_params += param.numel()
-
-            print(f"Froze {frozen_params}/{frozen_params + non_frozen_params} = {frozen_params / (frozen_params + non_frozen_params)}%")
+        print(f"Freezing everything but the classification layer ! ")
+        for param in self.network.parameters():
+            param.requires_grad = False
+        
+        # Require gradient for classification layer
+        self.network.classifier.requires_grad_()
 
     def forward(self, x):
         return self.network(x)
-
-    """
-    def training_step(self, batch, batch_idx):
-        # Extract and process input
-        x, y = batch
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes).squeeze(1)
-        y = y.to(torch.float32)
-
-        # Get prediction, loss and accuracy
-        y_hat = self(x)
-        loss = self.loss_fun(y_hat, y)
-        acc = self.accuracy(y_hat, y)
-
-        # logs metrics for each training_step - [default:True],
-        # the average across the epoch, to the progress bar and logger-[default:False]
-        self.log("train_acc", acc, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True),
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        # Extract and process input
-        x, y = batch
-        y = torch.nn.functional.one_hot(y, num_classes=self.num_classes).squeeze(1)
-        y = y.to(torch.float32) 
-
-        # Get prediction, loss and accuracy
-        y_hat = self(x)
-        loss = self.loss_fun(y_hat, y)
-        acc = self.accuracy(y_hat, y)
-
-        # logs metrics for each validation_step - [default:False]
-        #the average across the epoch - [default:True]
-        self.log("val_acc", acc, prog_bar=True, logger=True),
-        self.log("val_loss", loss, prog_bar=True, logger=True)
-    """

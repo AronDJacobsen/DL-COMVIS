@@ -49,7 +49,7 @@ def parse_arguments():
     # TRAINING PARAMETERS
     parser.add_argument("--region_size", type=int, default=224,
                         help="Size of bbox images for training.")
-    parser.add_argument("--batch_size", type=int, default=1,
+    parser.add_argument("--batch_size", type=int, default=8,
                         help="Batch size.")
     parser.add_argument("--num_workers", type=int, default=1,
                         help="Number of workers in the dataloader.")
@@ -109,7 +109,8 @@ def train(args):
     )
 
     # Load model
-    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size))
+    model = get_model(args.model_name, args, loss_fun, optimizer, out=args.out, num_classes=num_classes, region_size=(args.region_size, args.region_size), id2cat=loaders['train'].dataset.id2cat)
+
 
     # Set up logger
     tb_logger = TensorBoardLogger(
@@ -121,6 +122,7 @@ def train(args):
     acc = "gpu" if torch.cuda.is_available() else "cpu"
     if acc != 'gpu':
         print('##### RUNNING ON CPU ####')
+        
     # Setup trainer
     trainer = pl.Trainer(
         devices=args.devices, 
@@ -136,12 +138,15 @@ def train(args):
         model=model,
         train_dataloaders = loaders['train'],
         val_dataloaders   = loaders['validation']
-    ) 
+    )
 
     # manually you can save best checkpoints - 
     trainer.save_checkpoint(f"{args.save_path}/{args.experiment_name}/{args.model_name}.ckpt")
 
     # Testing the model
+
+    # Prediction
+    trainer.predict(model, dataloaders=loaders['test'], ckpt_path = 'best')
         
     # saving sweep plot if activated
     if args.initial_lr_steps != -1:

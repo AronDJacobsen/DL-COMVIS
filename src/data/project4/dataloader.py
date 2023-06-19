@@ -78,6 +78,7 @@ class WasteDataset(Dataset):
             'batch_14/000048.jpg',
             'batch_15/000078.jpg',
         ]
+        # self.image_paths = [img_path_data if img_path_data[1] not in exclude_images else self.image_paths[0] for img_path_data in self.image_paths ]
         self.image_paths = [img_path_data for img_path_data in self.image_paths if img_path_data[1] not in exclude_images]
 
         # shuffle image order 
@@ -121,9 +122,17 @@ class WasteDataset(Dataset):
         return len(self.image_paths)
 
     def extract_resize_region(self, image, bbox, box_type: str):
-        (x, y, w, h) = map(int, bbox)
+        # (x, y, w, h) = map(int, bbox)
+        (x, y, w, h) = map(int, np.ceil(bbox))
+
         if box_type == 'gt':
-            return torch.tensor([x, y, x+w, y+h]), self.region_transform(image = image[y:y+h, x:x+w, :])['image']
+            try:
+                return torch.tensor([x, y, x+w, y+h]), self.region_transform(image = image[y:y+h, x:x+w, :])['image']
+            except:
+                print((x, y, w, h))
+                print(image)
+                print(image[y:y+h, x:x+w, :])
+      
         elif box_type == 'predicted':
             return torch.tensor([x, y, x+w, y+h]), self.transform_pred_bbox(image = image[y:y+h, x:x+w, :])['image']
 
@@ -164,16 +173,9 @@ class WasteDataset(Dataset):
         pred_bboxes = torch.tensor(self.proposed_bboxes[img_path])
         
         # Transform image
-        # try:
         transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
-        # except:
-        #     corrupted = np.where(np.any(np.array(bboxes)<0, axis=1))
-        #     # TODO: remove the bounding box from bbox and category idx, problem, are tuples..
-        #     transformed = self.transform(image=image, bboxes = bboxes, category_ids = category_ids)
-        #     print('#### FAILED BOUNDING BOX ####')
-
         image = transformed['image']
-        
+
         # Extract categories, bboxes and new image after transformations are applied
         category_ids = transformed['category_ids']
         transformed_bboxes = transformed['bboxes']
