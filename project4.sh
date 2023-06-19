@@ -1,5 +1,5 @@
 #!/bin/sh
-#BSUB -J trial2_now
+#BSUB -J trial2_testnet
 #BSUB -o /work3/s194253/02514/project4_results/sh_logs/trial2_now.out
 #BSUB -e /work3/s194253/02514/project4_results/sh_errors/trial2_now.err
 #BSUB -n 6
@@ -16,8 +16,8 @@ module load cuda/11.8
 source /work3/s194253/02514/DL-COMVIS/venv/bin/activate
 
 CUDA_VISIBLE_DEVICES=0 python src/models/project4/train_model.py \
-    --model_name efficientnet_b4 \
-    --experiment_name trial2_now \
+    --model_name testnet \
+    --experiment_name trial2_testnet \
     --data_path '/work3/s194253/02514/project4_results/data_wastedetection' \
     --epochs 200 \
     --batch_size 1 \
