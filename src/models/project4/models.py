@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import timm
 from torchmetrics.classification import Accuracy
-from torchvision.ops import box_iou
+from torchvision.ops import box_iou, nms
+from torchmetrics.detection.mean_ap import MeanAveragePrecision
 from collections import Counter
 
 from src.utils import accuracy, IoU, plot_SS
@@ -37,6 +38,7 @@ class BaseModel(pl.LightningModule):
         self.offset = 0
         self.num_classes = num_classes
         self.iou_threshold = .5 # TODO: appropriate???
+        self.mAP = MeanAveragePrecision()
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
@@ -127,8 +129,8 @@ class BaseModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss, acc = 0, 0
-
+        loss, acc,IoU, mAP = 0, 0, 0
+        y_hat = []
         # for each image
         for (img, cat_id, bboxes_data, pred_bboxes_data) in batch:
             # for each bounding box
@@ -137,11 +139,24 @@ class BaseModel(pl.LightningModule):
 
             # Classify proposed regions
             y_hat = self.forward(pred_regions)
+            
+            # maximum probabilities
+            outputs = torch.nn.functional.softmax(y_hat, dim=1)
+            pred_prob, pred_cat = torch.max(outputs, 1)
+            # Applying NMS (remove redundant boxes)
+            keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold)
+            # Computing AP
+            preds = [{'boxes': pred_bboxes[keep_indices], 'scores':pred_prob[keep_indices], 'labels':pred_cat[keep_indices]}]
+            targets = [{'boxes':bboxes, 'labels':cat_id.flatten()}]
+            # update mAP class
+            self.mAP.update(preds, targets)
+            # calculate
+            map += self.mAP.compute()['map_50']
 
-        # Compute performance
-        IoU = 1. # TODO: change
-        mAP = 1. # TODO: change
-
+    
+        # Normalize
+        IoU /= len(batch)
+        mAP /= len(batch)
         # Log performance
         self.log('IoU/val', IoU, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('mAP/val', mAP, batch_size=len(batch), prog_bar=True, logger=True)
@@ -207,6 +222,7 @@ class TestNet(BaseModel):
 class EfficientNet(BaseModel):
     def __init__(self, args, loss_fun, optimizer, out, num_classes, region_size):
         super().__init__(args, loss_fun, optimizer, out, num_classes)
+
 
         # Load model
         self.network = timm.create_model(args.model_name, pretrained=True, num_classes=self.num_classes)
