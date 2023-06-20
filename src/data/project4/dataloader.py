@@ -46,12 +46,12 @@ class WasteDataset(Dataset):
         # Extract categories, supercategories and other useful information
         self.use_super_categories = use_super_categories
         if self.use_super_categories:
-            self.categories = list(set([cat['supercategory'] for cat in dataset['categories']]))
+            self.categories = sorted(list(set([cat['supercategory'] for cat in dataset['categories']])))
             # Create dictionary for mapping between ids and chosen category
             supercat2id = {x: index for index, x in enumerate(self.categories)}
             self.id2supercatid = {cat['id']: supercat2id[cat['supercategory']] for cat in dataset['categories']}
         else:
-            self.categories = list(set([cat['name'] for cat in dataset['categories']]))
+            self.categories = sorted(list(set([cat['name'] for cat in dataset['categories']])))
             # Create dictionary for mapping between ids and chosen category
             cat2id = {x: index for index, x in enumerate(self.categories)}
             self.id2catid = {cat['id']: cat2id[cat['name']] for cat in dataset['categories']}
