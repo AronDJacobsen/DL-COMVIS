@@ -47,7 +47,8 @@ class BaseModel(pl.LightningModule):
         self.model_checkpoint = ModelCheckpoint(
             monitor = "mAP/val",
             verbose = args.verbose,
-            filename = "{epoch}_{val_loss:.4f}",
+            filename = "{epoch}_{mAP:.4f}",
+            mode = 'max',
         )
         
         self.save_hyperparameters(ignore=['loss_fun'])
