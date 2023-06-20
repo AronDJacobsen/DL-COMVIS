@@ -16,7 +16,7 @@ from src.utils import accuracy, IoU, plot_SS, Recall
 def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, region_size=(512,512), id2cat=None):
     if model_name == 'testnet':
         return TestNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size, id2cat=id2cat)
-    elif model_name == 'efficientnet_b4':
+    elif model_name == 'efficientnet_b4' or 'resnet18':
         return EfficientNet(args, loss_fun, optimizer, out=out, num_classes=num_classes, region_size=region_size, id2cat=id2cat)
     else:
         raise ValueError('unknown model name')
@@ -43,6 +43,7 @@ class BaseModel(pl.LightningModule):
             monitor = "loss/val",
             verbose = args.verbose,
             filename = "{epoch}_{loss_val:.4f}",
+            save_top_k=-1,
         )
         
         self.save_hyperparameters(ignore=['loss_fun'])
@@ -134,7 +135,7 @@ class BaseModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss_val, mAP, acc, IoU, recall = 0, 0, 0, 0, []
+        loss_val, mAP, acc, IoU, recall = 0, 0, 0, 0, 0
         y_hat = []
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
@@ -153,7 +154,7 @@ class BaseModel(pl.LightningModule):
                 pred_prob, pred_cat = torch.max(outputs, 1)
 
                 one_hot_cat_pred    = torch.nn.functional.one_hot(pred_labels, num_classes=self.num_classes).to(torch.float)
-                loss_val           += self.loss_fun(y_hat, one_hot_cat_pred)
+                loss_val           += self.loss_fun(y_hat.to(self.device), one_hot_cat_pred.to(self.device))
 
                 # Applying NMS (remove redundant boxes)
                 keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
@@ -174,7 +175,10 @@ class BaseModel(pl.LightningModule):
                 # IoU - find pred_bbox with max IoU to ground truths and average
                 iou_with_nms        = box_iou(bboxes, pred_bboxes[keep_indices][pred_gt_bboxes[keep_indices] != -1])
                 iou_without_nms     = box_iou(bboxes, pred_bboxes[pred_gt_bboxes != -1])
-                IoU                += iou_with_nms.max(dim=1)[0].mean()
+                try:
+                    IoU            += iou_with_nms.max(dim=1)[0].mean()
+                except IndexError:
+                    IoU            += 0
 
                 # Calculate recall of proposed bboxes
                 bboxes_TP           = (iou_with_nms.argmax(dim=0) > 0.5).sum()  # determine if box is correct based on IoU between NMS pred and GT 
@@ -182,9 +186,8 @@ class BaseModel(pl.LightningModule):
                 # Store recall in list for computing confidence scores                                                  
                 recall             += (bboxes_TP / all_P).detach().cpu()
 
-            except: 
-                pass
-                # print("Error found!!!")
+            except KeyError as e:
+                print(e)
 
         # Normalize
         mAP     /= len(batch)
@@ -205,7 +208,7 @@ class BaseModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         # extract input
-        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, []
+        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, 0
         y_hat = []
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
@@ -330,7 +333,7 @@ class EfficientNet(BaseModel):
         self.network = timm.create_model(args.model_name, pretrained=True, num_classes=self.num_classes)
 
         # Freeze parameters
-        self.freeze_parameters(args.percentage_to_freeze)
+        # self.freeze_parameters(args.percentage_to_freeze)
 
     def freeze_parameters(self, percentage_to_freeze):
         # Freeze weights

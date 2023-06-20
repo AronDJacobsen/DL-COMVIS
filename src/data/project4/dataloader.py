@@ -112,7 +112,7 @@ class WasteDataset(Dataset):
         # Restrict to train, test or validation set
         selected_images         = [img_path[1] for img_path in self.image_paths] 
         self.proposed_bboxes    = {
-            img_name: tuple([list(bbox_) for bbox_ in proposed_bboxes_]) 
+            img_name: tuple([list(bbox_) for bbox_ in proposed_bboxes_ if bbox_[2] > 20 and bbox_[3] > 20]) 
             for img_name, proposed_bboxes_ in proposed_bboxes.items() 
             if img_name in selected_images
         }
