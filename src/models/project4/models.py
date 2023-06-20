@@ -310,7 +310,7 @@ class BaseModel(pl.LightningModule):
                 disp = ConfusionMatrixDisplay(confusion_matrix=cm,
                                             display_labels=classes)
                 disp.plot()
-                path = '/work3/s184984/02514/project4_results/predict_imgs'):
+                path = '/work3/s184984/02514/project4_results/predict_imgs'
                 folder_path = f"{path}/{path.split('/')[-1]}_batchidx{batch_idx}"
                 plt.savefig(f'{folder_path}/idx{idx}.png', dpi=300, bbox_inches='tight')
 
