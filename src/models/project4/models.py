@@ -22,8 +22,8 @@ def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, r
         raise ValueError('unknown model name')
 
 
-import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+# import os
+# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
 
 
 ### BASEMODEL ###
@@ -45,9 +45,9 @@ class BaseModel(pl.LightningModule):
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
-            monitor = "mAP/val",
+            monitor = "acc/val",
             verbose = args.verbose,
-            filename = "{epoch}_{mAP:.4f}",
+            filename = "{epoch}_{acc/val:.4f}",
             mode = 'max',
         )
         

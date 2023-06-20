@@ -67,7 +67,7 @@ def parse_arguments():
                         help="Number of initial steps for finding learning rate, -1 to deactivate.")
     parser.add_argument("--optimizer", type=str, default='Adam',
                         help="The optimizer to be used.")
-    parser.add_argument("--loss", type=str, default = 'BCE',
+    parser.add_argument("--loss", type=str, default = 'CrossEntropy',
                         help="Loss function - one of: [CrossEntropy,BCE]")
     parser.add_argument('--augmentation', nargs='+', action=BooleanListAction, 
                         help='List of booleans, i.e. [flip, rotation]')
