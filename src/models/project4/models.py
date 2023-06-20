@@ -82,7 +82,6 @@ class BaseModel(pl.LightningModule):
         return pred_matches, gt_matches, pred_labels, pred_gt_bboxes
 
     def training_step(self, batch, batch_idx):
-
         # extract input
         loss, acc = 0, 0
 
@@ -154,7 +153,8 @@ class BaseModel(pl.LightningModule):
                 pred_prob, pred_cat = torch.max(outputs, 1)
 
                 one_hot_cat_pred    = torch.nn.functional.one_hot(pred_labels, num_classes=self.num_classes).to(torch.float)
-                loss_val           += self.loss_fun(y_hat.to(self.device), one_hot_cat_pred.to(self.device))
+                loss_val           += self.loss_fun(y_hat, one_hot_cat_pred)
+                print(loss_val)
 
                 # Applying NMS (remove redundant boxes)
                 keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
@@ -302,6 +302,9 @@ class BaseModel(pl.LightningModule):
             }
 
             plot_SS(img, targets['boxes'], targets['labels'], preds['boxes'], preds['labels'], preds['scores'], i, batch_idx, self.id2cat)
+
+
+        
 
 
 class TestNet(BaseModel):
