@@ -303,18 +303,7 @@ class BaseModel(pl.LightningModule):
 
             plot_SS(img, targets['boxes'], targets['labels'], preds['boxes'], preds['labels'], preds['scores'], i, batch_idx, self.id2cat)
 
-            def conf_mat(preds, targets, classes, idx):
-                import matplotlib.pyplot as plt
-                from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-                cm = confusion_matrix(targets, preds, labels=classes)
-                disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                            display_labels=classes)
-                disp.plot()
-                path = '/work3/s184984/02514/project4_results/predict_imgs'
-                folder_path = f"{path}/{path.split('/')[-1]}_batchidx{batch_idx}"
-                plt.savefig(f'{folder_path}/idx{idx}.png', dpi=300, bbox_inches='tight')
 
-            # conf_mat(preds['labels'], targets['labels'], self.id2cat)
         
 
 
