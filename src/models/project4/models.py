@@ -21,11 +21,6 @@ def get_model(model_name, args, loss_fun, optimizer, out=False, num_classes=2, r
     else:
         raise ValueError('unknown model name')
 
-
-import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
-
-
 ### BASEMODEL ###
 class BaseModel(pl.LightningModule):
     '''
@@ -45,9 +40,9 @@ class BaseModel(pl.LightningModule):
         
         # checkpointing and logging
         self.model_checkpoint = ModelCheckpoint(
-            monitor = "mAP/val",
+            monitor = "loss/val",
             verbose = args.verbose,
-            filename = "{epoch}_{val_loss:.4f}",
+            filename = "{epoch}_{loss_val:.4f}",
         )
         
         self.save_hyperparameters(ignore=['loss_fun'])
@@ -139,7 +134,7 @@ class BaseModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         # extract input
-        loss, mAP, acc, IoU, recall = 0, 0, 0, 0, []
+        loss_val, mAP, acc, IoU, recall = 0, 0, 0, 0, []
         y_hat = []
         # for each image
         for (img, cat_ids, bboxes_data, pred_bboxes_data) in batch:
@@ -157,6 +152,9 @@ class BaseModel(pl.LightningModule):
                 outputs             = torch.nn.functional.softmax(y_hat, dim=1)
                 pred_prob, pred_cat = torch.max(outputs, 1)
 
+                one_hot_cat_pred    = torch.nn.functional.one_hot(pred_labels, num_classes=self.num_classes).to(torch.float)
+                loss_val           += self.loss_fun(y_hat, one_hot_cat_pred)
+
                 # Applying NMS (remove redundant boxes)
                 keep_indices = nms(pred_bboxes.to(torch.float), pred_prob, self.iou_threshold).to('cpu')
                 # Computing AP
@@ -168,8 +166,6 @@ class BaseModel(pl.LightningModule):
                             'labels':   cat_ids.flatten()}]
                 
                 # calculate mAP
-                # self.mAP.update(preds, targets)
-                # mAP += self.mAP.compute()['map_50']
                 mAP += MeanAveragePrecision()(preds, targets)['map']
 
                 # Label accuracy
@@ -184,7 +180,7 @@ class BaseModel(pl.LightningModule):
                 bboxes_TP           = (iou_with_nms.argmax(dim=0) > 0.5).sum()  # determine if box is correct based on IoU between NMS pred and GT 
                 all_P               = len(bboxes)     
                 # Store recall in list for computing confidence scores                                                  
-                recall.append((bboxes_TP / all_P).detach().cpu().item())
+                recall             += (bboxes_TP / all_P).detach().cpu()
 
             except: 
                 pass
@@ -194,12 +190,16 @@ class BaseModel(pl.LightningModule):
         mAP     /= len(batch)
         acc     /= len(batch)
         IoU     /= len(batch)
+        recall  /= len(batch)
+        loss_val /= len(batch)
 
         # Log performance
-        self.log('mAP/val',         mAP,   batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('acc/val',         acc,   batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('IoU/val',         IoU,   batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/val',      np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('loss/val',        loss_val,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('loss_val',        loss_val,   batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('mAP/val',         mAP,    batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('acc/val',         acc,    batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('IoU/val',         IoU,    batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/val',      recall, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('learning_rate',   self.lr, batch_size=len(batch), prog_bar=True, logger=True)
 
 
@@ -250,7 +250,7 @@ class BaseModel(pl.LightningModule):
                 bboxes_TP           = (iou_with_nms.argmax(dim=0) > 0.5).sum()  # determine if box is correct based on IoU between NMS pred and GT 
                 all_P               = len(bboxes)     
                 # Store recall in list for computing confidence scores                         
-                recall.append((bboxes_TP / all_P).detach().cpu().item())
+                recall             += (bboxes_TP / all_P).detach().cpu()
 
             except: 
                 pass 
@@ -260,12 +260,13 @@ class BaseModel(pl.LightningModule):
         mAP     /= len(batch)
         acc     /= len(batch)
         IoU     /= len(batch)
+        recall  /= len(batch)
 
         # Log performance
         self.log('mAP/test',    mAP, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('acc/test',    acc, batch_size=len(batch), prog_bar=True, logger=True)
         self.log('IoU/test',    IoU, batch_size=len(batch), prog_bar=True, logger=True)
-        self.log('recall/test', np.mean(recall), batch_size=len(batch), prog_bar=True, logger=True)
+        self.log('recall/test', recall, batch_size=len(batch), prog_bar=True, logger=True)
 
     def predict_step(self, batch, batch_idx):
 
